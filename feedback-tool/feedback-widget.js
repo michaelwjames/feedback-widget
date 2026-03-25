@@ -238,9 +238,21 @@
         loadingArea.style.display = 'flex';
         cancelBtn.style.display = 'none';
 
+        const metadata = {
+            url: window.location.href,
+            pathname: window.location.pathname,
+            hostname: window.location.hostname,
+            pageTitle: document.title,
+            userAgent: navigator.userAgent,
+            screenResolution: `${window.screen.width}x${window.screen.height}`,
+            windowSize: `${window.innerWidth}x${window.innerHeight}`,
+            timestamp: new Date().toISOString()
+        };
+
         const payload = {
             text: textArea.value,
-            screenshot: previewImg.src
+            screenshot: previewImg.src,
+            metadata: metadata
         };
 
         fetch(config.endpoint, {

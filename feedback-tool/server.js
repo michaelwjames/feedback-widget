@@ -73,7 +73,7 @@ app.get('/api/jules/sources', async (req, res) => {
 // Step 1: POST endpoint to save feedback and RUN GROQ
 app.post('/api/feedback', async (req, res) => {
     try {
-        const { text, screenshot } = req.body;
+        const { text, screenshot, metadata } = req.body;
 
         if (!text && !screenshot) {
             return res.status(400).json({ error: 'Text or screenshot is required.' });
@@ -85,8 +85,24 @@ app.post('/api/feedback', async (req, res) => {
         // Create directory for this specific feedback instance
         fs.mkdirSync(currentFeedbackDir);
 
+        // Save metadata to file
+        if (metadata) {
+            fs.writeFileSync(path.join(currentFeedbackDir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf8');
+        }
+
         let markdownContent = `# Feedback ${new Date(timestamp).toLocaleString()}\n\n`;
         markdownContent += `## Message\n\n${text || 'No text provided.'}\n\n`;
+
+        if (metadata) {
+            markdownContent += `## Page Metadata\n\n`;
+            markdownContent += `- **URL:** ${metadata.url || 'N/A'}\n`;
+            markdownContent += `- **Hostname:** ${metadata.hostname || 'N/A'}\n`;
+            markdownContent += `- **Pathname:** ${metadata.pathname || 'N/A'}\n`;
+            markdownContent += `- **Page Title:** ${metadata.pageTitle || 'N/A'}\n`;
+            markdownContent += `- **User Agent:** \`${metadata.userAgent || 'N/A'}\`\n`;
+            markdownContent += `- **Resolution:** ${metadata.screenResolution || 'N/A'} (Window: ${metadata.windowSize || 'N/A'})\n`;
+            markdownContent += `- **Timestamp:** ${metadata.timestamp || 'N/A'}\n\n`;
+        }
 
         let imagePath = null;
         // Handle screenshot
