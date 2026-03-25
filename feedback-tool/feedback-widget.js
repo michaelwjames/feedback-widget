@@ -8,9 +8,9 @@
     triggerBtn.innerText = 'Feedback';
     document.body.appendChild(triggerBtn);
 
-    // Dynamically load html2canvas from unpkg CDN
+    // Dynamically load html-to-image from cdnjs
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
     script.async = true;
     document.head.appendChild(script);
 
@@ -345,13 +345,26 @@
                 const defaults = [];
                 const others = [];
 
+                // Keep defaults in exact order from configDefaults.repos
+                configDefaults.repos.forEach(repoId => {
+                    const found = sources.find(s => s.name.replace('sources/', '') === repoId);
+                    if (found) defaults.push(found);
+                });
+
                 sources.forEach(s => {
                     const id = s.name.replace('sources/', '');
-                    if (configDefaults.repos.includes(id)) {
-                        defaults.push(s);
-                    } else {
+                    if (!configDefaults.repos.includes(id)) {
                         others.push(s);
                     }
+                });
+
+                // Sort others alphabetically by their label
+                others.sort((a, b) => {
+                    const idA = a.name.replace('sources/', '');
+                    const labelA = a.githubRepo ? `${a.githubRepo.owner}/${a.githubRepo.repo}` : idA;
+                    const idB = b.name.replace('sources/', '');
+                    const labelB = b.githubRepo ? `${b.githubRepo.owner}/${b.githubRepo.repo}` : idB;
+                    return labelA.localeCompare(labelB);
                 });
 
                 // Generate HTML with divider
@@ -395,13 +408,20 @@
                 const defaults = [];
                 const others = [];
 
+                // Keep defaults in exact order from configDefaults.personas
+                configDefaults.personas.forEach(personaName => {
+                    const found = personas.find(p => p === personaName);
+                    if (found) defaults.push(found);
+                });
+
                 personas.forEach(p => {
-                    if (configDefaults.personas.includes(p)) {
-                        defaults.push(p);
-                    } else {
+                    if (!configDefaults.personas.includes(p)) {
                         others.push(p);
                     }
                 });
+
+                // Sort others alphabetically
+                others.sort((a, b) => a.localeCompare(b));
 
                 // Generate HTML with divider
                 let html = defaults.map(p => {
@@ -445,14 +465,21 @@
         const defaults = [];
         const others = [];
 
+        // Keep defaults in exact order from configDefaults.branches
+        configDefaults.branches.forEach(branchName => {
+            const found = branches.find(b => b.displayName === branchName);
+            if (found) defaults.push(found);
+        });
+
         branches.forEach(b => {
             const name = b.displayName;
-            if (configDefaults.branches.includes(name)) {
-                defaults.push(b);
-            } else {
+            if (!configDefaults.branches.includes(name)) {
                 others.push(b);
             }
         });
+
+        // Sort others alphabetically
+        others.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
         // Generate HTML with divider
         let html = defaults.map(b => {
@@ -520,72 +547,92 @@
     function processSelection(rect) {
         // New feedback capture always clears any old minimized state
         maximizeModal();
-
+    
         // Hide overlay temporarily to capture what's underneath
         overlay.style.display = 'none';
-
-        if (typeof html2canvas === 'undefined') {
-            alert('html2canvas is still loading or failed to load.');
+    
+        if (typeof htmlToImage === 'undefined') {
+            alert('html-to-image is still loading or failed to load. Please try again in a moment.');
             resetOverlay();
             return;
         }
-
+    
+        console.log("[FEEDBACK-WIDGET] Starting screenshot capture with html-to-image...");
+    
         // Add a visual indicator that capturing is in progress
         const capturingToast = document.createElement('div');
         capturingToast.innerText = "Capturing...";
         capturingToast.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999999;";
         document.body.appendChild(capturingToast);
-
-        // We capture the whole body
-        html2canvas(document.body, {
-            useCORS: true,
-            logging: false,
-            allowTaint: true,
-            scrollX: 0,
-            scrollY: 0,
-            x: window.scrollX,
-            y: window.scrollY,
-            width: window.innerWidth,
-            height: window.innerHeight
-        }).then(canvas => {
-            document.body.removeChild(capturingToast);
-
-            const ctx = canvas.getContext('2d');
-            // html2canvas leaves a transform on the context (e.g. for devicePixelRatio).
-            // We must reset it to the identity matrix so our physical pixel calculations map correctly.
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-            const scale = canvas.width / window.innerWidth;
-
-            const rx = rect.x * scale;
-            const ry = rect.y * scale;
-            const rw = rect.width * scale;
-            const rh = rect.height * scale;
-            const cw = canvas.width;
-            const ch = canvas.height;
-
-            // Draw dark overlay on unselected areas
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            ctx.fillRect(0, 0, cw, ry); // Top
-            ctx.fillRect(0, ry + rh, cw, ch - (ry + rh)); // Bottom
-            ctx.fillRect(0, ry, rx, rh); // Left
-            ctx.fillRect(rx + rw, ry, cw - (rx + rw), rh); // Right
-
-            // Draw red border around selected area
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = Math.max(2, 4 * scale);
-            ctx.strokeRect(rx, ry, rw, rh);
-
-            const dataUrl = canvas.toDataURL('image/png');
-            previewImg.src = dataUrl;
-
-            // Show modal
-            modalContainer.style.display = 'flex';
-            textArea.focus();
-
-            resetOverlay();
+    
+        // Capture using toPng with extra safety filters
+        htmlToImage.toPng(document.body, {
+            backgroundColor: '#ffffff',
+            pixelRatio: 1,
+            cacheBust: true,
+            filter: (node) => {
+                // Exclude scripts and our own widget elements to prevent capture errors/recursion
+                if (node.tagName === 'SCRIPT') return false;
+                if (node.id && node.id.startsWith('fw-')) return false;
+                return true;
+            }
+        }).then(dataUrl => {
+            console.log("[FEEDBACK-WIDGET] Capture success. dataUrl length:", dataUrl.length);
+            
+            // Safety check for common failure modes where text/html is returned
+            if (!dataUrl || !dataUrl.startsWith("data:image/")) {
+                console.error("[FEEDBACK-WIDGET] Captured invalid dataUrl type:", dataUrl.substring(0, 100));
+                throw new Error("Captured data is not an image. It might be an error page or blocked resource.");
+            }
+    
+            const img = new Image();
+            img.onload = () => {
+                console.log("[FEEDBACK-WIDGET] Rendering selection overlay...");
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.drawImage(img, 0, 0);
+    
+                const rx = rect.x + window.scrollX;
+                const ry = rect.y + window.scrollY;
+                const rw = rect.width;
+                const rh = rect.height;
+    
+                // Draw dark overlay on unselected areas
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(0, 0, canvas.width, ry); // Top
+                ctx.fillRect(0, ry + rh, canvas.width, canvas.height - (ry + rh)); // Bottom
+                ctx.fillRect(0, ry, rx, rh); // Left
+                ctx.fillRect(rx + rw, ry, canvas.width - (rx + rw), rh); // Right
+    
+                // Draw red border around selected area
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rx, ry, rw, rh);
+    
+                // Update final preview
+                const finalDataUrl = canvas.toDataURL('image/png');
+                previewImg.src = finalDataUrl;
+    
+                if (document.body.contains(capturingToast)) {
+                    document.body.removeChild(capturingToast);
+                }
+    
+                modalContainer.style.display = 'flex';
+                textArea.focus();
+                resetOverlay();
+            };
+            img.onerror = (e) => {
+                console.error("[FEEDBACK-WIDGET] Image object loading error.", e);
+                throw new Error("Failed to load captured image into preview element.");
+            };
+            img.src = dataUrl;
         }).catch(err => {
-            console.error("Screenshot capture failed:", err);
+            console.error("[FEEDBACK-WIDGET] Capture pipeline failed:", err);
+            alert("Screenshot capture failed. Error: " + (err.message || "Unknown error"));
             if (document.body.contains(capturingToast)) {
                 document.body.removeChild(capturingToast);
             }

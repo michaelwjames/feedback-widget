@@ -102,6 +102,7 @@
 
 #fw-modal {
     background: #fff;
+    color: #2d3748;
     border-radius: 8px;
     width: 500px;
     max-width: 90%;
@@ -187,6 +188,7 @@
     resize: vertical;
     font-family: inherit;
     font-size: 14px;
+    color: #2d3748;
 }
 
 /* --- Loader and Agent Results --- */
@@ -242,6 +244,7 @@
     white-space: pre-wrap;
     box-sizing: border-box;
     resize: none;
+    color: #2d3748;
 }
 
 #fw-proposed-prompt:focus {
@@ -289,6 +292,7 @@
     background: white;
     max-width: 100%;
     box-sizing: border-box;
+    color: #2d3748;
 }
 
 .fw-refresh-btn {
