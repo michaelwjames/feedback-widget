@@ -26,6 +26,20 @@ app.use(express.static(__dirname));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
+// GET endpoint to fetch defaults
+app.get('/api/jules/defaults', async (req, res) => {
+    const DEFAULTS_FILE = path.join(__dirname, 'defaults.json');
+    if (fs.existsSync(DEFAULTS_FILE)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(DEFAULTS_FILE, 'utf8'));
+            return res.json(data);
+        } catch (err) {
+            console.error("Failed to read defaults file:", err);
+        }
+    }
+    res.json({ repos: [], branches: [], personas: [] }); // Fallback
+});
+
 // GET endpoint to fetch agent personas
 app.get('/api/jules/personas', async (req, res) => {
     const PERSONAS_FILE = path.join(__dirname, 'agent_personas.json');

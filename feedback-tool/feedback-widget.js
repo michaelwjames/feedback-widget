@@ -192,6 +192,7 @@
     let basePrompt = ''; // Original prompt from Groq
     let isEditingPrompt = false;
     let availableSources = [];
+    let configDefaults = { repos: [], branches: [], personas: [] };
 
     closeBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
@@ -221,8 +222,10 @@
     });
 
     // Fetch data once on load to warm cache
-    fetchSources();
-    fetchPersonas();
+    fetchDefaults().then(() => {
+        fetchSources();
+        fetchPersonas();
+    });
 
     submitBtn.addEventListener('click', () => {
         if (submitBtn.innerText === 'Analyze Feedback') {
@@ -316,6 +319,18 @@
             });
     }
 
+    function fetchDefaults() {
+        const baseUrl = config.endpoint.split('/api/feedback')[0];
+        return fetch(`${baseUrl}/api/jules/defaults`)
+            .then(res => res.json())
+            .then(data => {
+                configDefaults = data;
+            })
+            .catch(err => {
+                console.error("Failed to fetch defaults:", err);
+            });
+    }
+
     function fetchSources(refresh = false) {
         refreshReposBtn.classList.add('fw-refresh-spinning');
         const baseUrl = config.endpoint.split('/api/feedback')[0];
@@ -323,13 +338,40 @@
         fetch(`${baseUrl}/api/jules/sources${refresh ? '?refresh=true' : ''}`)
             .then(res => res.json())
             .then(data => {
-                availableSources = data.sources || [];
-                repoSelect.innerHTML = availableSources.map(s => {
+                const sources = data.sources || [];
+                availableSources = sources;
+
+                // Partition into defaults and rest
+                const defaults = [];
+                const others = [];
+
+                sources.forEach(s => {
+                    const id = s.name.replace('sources/', '');
+                    if (configDefaults.repos.includes(id)) {
+                        defaults.push(s);
+                    } else {
+                        others.push(s);
+                    }
+                });
+
+                // Generate HTML with divider
+                let html = defaults.map(s => {
                     const id = s.name.replace('sources/', '');
                     const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
                     return `<option value="${id}">${label}</option>`;
                 }).join('');
 
+                if (defaults.length > 0 && others.length > 0) {
+                    html += '<option disabled>──────────</option>';
+                }
+
+                html += others.map(s => {
+                    const id = s.name.replace('sources/', '');
+                    const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
+                    return `<option value="${id}">${label}</option>`;
+                }).join('');
+
+                repoSelect.innerHTML = html;
                 updateBranchOptions();
             })
             .catch(err => {
@@ -348,9 +390,33 @@
             .then(res => res.json())
             .then(data => {
                 const personas = data.personas || [];
-                personaSelect.innerHTML = personas.map(p => {
+
+                // Partition into defaults and rest
+                const defaults = [];
+                const others = [];
+
+                personas.forEach(p => {
+                    if (configDefaults.personas.includes(p)) {
+                        defaults.push(p);
+                    } else {
+                        others.push(p);
+                    }
+                });
+
+                // Generate HTML with divider
+                let html = defaults.map(p => {
                     return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
                 }).join('');
+
+                if (defaults.length > 0 && others.length > 0) {
+                    html += '<option disabled>──────────</option>';
+                }
+
+                html += others.map(p => {
+                    return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+                }).join('');
+
+                personaSelect.innerHTML = html;
             })
             .catch(err => {
                 console.error("Failed to fetch personas:", err);
@@ -375,10 +441,35 @@
             return;
         }
 
-        branchSelect.innerHTML = branches.map(b => {
+        // Partition into defaults and rest
+        const defaults = [];
+        const others = [];
+
+        branches.forEach(b => {
+            const name = b.displayName;
+            if (configDefaults.branches.includes(name)) {
+                defaults.push(b);
+            } else {
+                others.push(b);
+            }
+        });
+
+        // Generate HTML with divider
+        let html = defaults.map(b => {
             const name = b.displayName;
             return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
         }).join('');
+
+        if (defaults.length > 0 && others.length > 0) {
+            html += '<option disabled>──────────</option>';
+        }
+
+        html += others.map(b => {
+            const name = b.displayName;
+            return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
+        }).join('');
+
+        branchSelect.innerHTML = html;
     }
 
     function updatePromptPreview() {
