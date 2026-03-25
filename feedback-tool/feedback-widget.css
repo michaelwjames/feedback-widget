@@ -1,0 +1,290 @@
+/* feedback-widget.css */
+
+/* --- Feedback Button --- */
+#fw-trigger-btn {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%) rotate(-90deg);
+    transform-origin: right bottom;
+    background-color: #2b6cb0;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px 4px 0 0;
+    font-family: sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 999999;
+    user-select: none;
+}
+
+#fw-trigger-btn:hover {
+    background-color: #2c5282;
+}
+
+/* --- Overlay --- */
+#fw-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 1000000;
+    cursor: crosshair;
+    display: none;
+}
+
+/* --- Selection Rectangle --- */
+#fw-selection-rect {
+    position: absolute;
+    border: 2px dashed #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: none;
+    pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); /* Highlight selected area while dimming rest */
+}
+
+/* Override dimming on overlay when rectangle is active to use box-shadow approach */
+#fw-overlay.fw-drawing {
+    background-color: transparent;
+}
+#fw-overlay.fw-drawing #fw-selection-rect {
+    display: block;
+}
+
+/* --- Modal --- */
+#fw-modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0,0,0,0.6);
+    z-index: 1000001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+}
+
+#fw-modal {
+    background: #fff;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.fw-modal-header {
+    background: #f7fafc;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fw-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #2d3748;
+}
+
+.fw-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: #a0aec0;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.fw-close-btn:hover {
+    color: #4a5568;
+}
+
+.fw-modal-body {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+#fw-screenshot-preview {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    max-height: 250px;
+    object-fit: contain;
+    background-color: #f7fafc;
+}
+
+#fw-feedback-text {
+    width: 100%;
+    box-sizing: border-box;
+    height: 100px;
+    padding: 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+/* --- Loader and Agent Results --- */
+#fw-loading-area, #fw-result-area {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    text-align: center;
+}
+
+.fw-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2b6cb0;
+    border-radius: 50%;
+    animation: fw-spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes fw-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#fw-loading-text {
+    font-size: 14px;
+    color: #4a5568;
+}
+
+#fw-proposed-prompt {
+    width: 100%;
+    height: 150px;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    overflow-y: auto;
+    text-align: left;
+    white-space: pre-wrap;
+    box-sizing: border-box;
+}
+
+.fw-success-msg {
+    color: #2f855a;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* --- Repo Selection Styles --- */
+.fw-field-group {
+    margin-top: 15px;
+    text-align: left;
+}
+
+.fw-field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+    margin-bottom: 5px;
+}
+
+.fw-input-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.fw-select, .fw-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+}
+
+.fw-refresh-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #718096;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.fw-refresh-btn:hover {
+    color: #2b6cb0;
+}
+
+.fw-refresh-btn:active {
+    transform: rotate(30deg);
+}
+
+.fw-refresh-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+@keyframes fw-spin-refresh {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.fw-refresh-spinning svg {
+    animation: fw-spin-refresh 0.8s linear infinite;
+}
+
+.fw-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #f7fafc;
+    text-align: right;
+}
+
+.fw-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.fw-btn-cancel {
+    background: #fff;
+    border: 1px solid #cbd5e0;
+    color: #4a5568;
+    margin-right: 10px;
+}
+
+.fw-btn-cancel:hover {
+    background: #f7fafc;
+}
+
+.fw-btn-submit {
+    background: #2b6cb0;
+    border: 1px solid #2b6cb0;
+    color: #fff;
+}
+
+.fw-btn-submit:hover {
+    background: #2c5282;
+}
