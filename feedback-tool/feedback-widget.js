@@ -1,108 +1,178 @@
-(function () {
-    // Read config
-    const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: 'http://localhost:12345/api/feedback' };
-
-    // Inject the Feedback button
-    const triggerBtn = document.createElement('button');
-    triggerBtn.id = 'fw-trigger-btn';
-    triggerBtn.innerText = 'Feedback';
-    document.body.appendChild(triggerBtn);
-
-    // Dynamically load html-to-image from cdnjs
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
-    script.async = true;
-    document.head.appendChild(script);
-
-    // Minimized Toggle (Box icon)
-    const minimizedBadge = document.createElement('button');
-    minimizedBadge.id = 'fw-minimized-badge';
-    minimizedBadge.title = 'Maximize feedback';
-    minimizedBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>';
-    document.body.appendChild(minimizedBadge);
-
-    // Create the overlay and selection rectangle
-    const overlay = document.createElement('div');
-    overlay.id = 'fw-overlay';
-    document.body.appendChild(overlay);
-
-    const selectionRect = document.createElement('div');
-    selectionRect.id = 'fw-selection-rect';
-    overlay.appendChild(selectionRect);
-
-    // Variables for drawing
-    let isDrawing = false;
-    let startX = 0;
-    let startY = 0;
-    let rectParams = null;
-
-    triggerBtn.addEventListener('click', () => {
-        // Ensure fresh feedback clicks always reset the process
-        closeModal(); // Close any existing modal and reset its state
-        overlay.style.display = 'block';
-        document.body.style.userSelect = 'none'; // Prevent text selection
+"use strict";
+(() => {
+  var __async = (__this, __arguments, generator) => {
+    return new Promise((resolve, reject) => {
+      var fulfilled = (value) => {
+        try {
+          step(generator.next(value));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      var rejected = (value) => {
+        try {
+          step(generator.throw(value));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+      step((generator = generator.apply(__this, __arguments)).next());
     });
+  };
 
-    overlay.addEventListener('mousedown', (e) => {
-        isDrawing = true;
-        startX = e.clientX;
-        startY = e.clientY;
+  // src/api.ts
+  var APIClient = class {
+    constructor(config) {
+      this.config = config;
+      this.baseUrl = config.endpoint.split("/api/feedback")[0];
+    }
+    fetchDefaults() {
+      return __async(this, null, function* () {
+        const res = yield fetch(`${this.baseUrl}/api/jules/defaults`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      });
+    }
+    fetchSources(refresh = false) {
+      return __async(this, null, function* () {
+        const url = `${this.baseUrl}/api/jules/sources${refresh ? "?refresh=true" : ""}`;
+        const res = yield fetch(url);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      });
+    }
+    fetchPersonas() {
+      return __async(this, null, function* () {
+        const res = yield fetch(`${this.baseUrl}/api/jules/personas`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      });
+    }
+    analyzeFeedback(payload) {
+      return __async(this, null, function* () {
+        const res = yield fetch(this.config.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        return res.json();
+      });
+    }
+    sendToJules(payload) {
+      return __async(this, null, function* () {
+        const res = yield fetch(`${this.baseUrl}/api/send-to-jules`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        return res.json();
+      });
+    }
+  };
 
-        selectionRect.style.left = `${startX}px`;
-        selectionRect.style.top = `${startY}px`;
-        selectionRect.style.width = '0px';
-        selectionRect.style.height = '0px';
+  // src/ui/Trigger.ts
+  var Trigger = class {
+    constructor(onClickTrigger, onClickBadge) {
+      this.triggerBtn = document.createElement("button");
+      this.triggerBtn.id = "fw-trigger-btn";
+      this.triggerBtn.innerText = "Feedback";
+      document.body.appendChild(this.triggerBtn);
+      this.minimizedBadge = document.createElement("button");
+      this.minimizedBadge.id = "fw-minimized-badge";
+      this.minimizedBadge.title = "Maximize feedback";
+      this.minimizedBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>';
+      document.body.appendChild(this.minimizedBadge);
+      this.triggerBtn.addEventListener("click", onClickTrigger);
+      this.minimizedBadge.addEventListener("click", onClickBadge);
+    }
+    showBadge() {
+      this.minimizedBadge.style.display = "flex";
+    }
+    hideBadge() {
+      this.minimizedBadge.style.display = "none";
+    }
+  };
 
-        overlay.classList.add('fw-drawing');
-    });
-
-    overlay.addEventListener('mousemove', (e) => {
-        if (!isDrawing) return;
-
+  // src/ui/Overlay.ts
+  var Overlay = class {
+    constructor(onComplete) {
+      this.isDrawing = false;
+      this.startX = 0;
+      this.startY = 0;
+      this.rectParams = null;
+      this.onComplete = onComplete;
+      this.overlay = document.createElement("div");
+      this.overlay.id = "fw-overlay";
+      document.body.appendChild(this.overlay);
+      this.selectionRect = document.createElement("div");
+      this.selectionRect.id = "fw-selection-rect";
+      this.overlay.appendChild(this.selectionRect);
+      this.attachEvents();
+    }
+    attachEvents() {
+      this.overlay.addEventListener("mousedown", (e) => {
+        this.isDrawing = true;
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.selectionRect.style.left = `${this.startX}px`;
+        this.selectionRect.style.top = `${this.startY}px`;
+        this.selectionRect.style.width = "0px";
+        this.selectionRect.style.height = "0px";
+        this.overlay.classList.add("fw-drawing");
+      });
+      this.overlay.addEventListener("mousemove", (e) => {
+        if (!this.isDrawing) return;
         const currentX = e.clientX;
         const currentY = e.clientY;
-
-        const width = Math.abs(currentX - startX);
-        const height = Math.abs(currentY - startY);
-        const left = Math.min(currentX, startX);
-        const top = Math.min(currentY, startY);
-
-        selectionRect.style.left = `${left}px`;
-        selectionRect.style.top = `${top}px`;
-        selectionRect.style.width = `${width}px`;
-        selectionRect.style.height = `${height}px`;
-
-        rectParams = { x: left, y: top, width, height };
-    });
-
-    overlay.addEventListener('mouseup', () => {
-        if (!isDrawing) return;
-        isDrawing = false;
-
-        document.body.style.userSelect = '';
-
-        if (rectParams && rectParams.width > 10 && rectParams.height > 10) {
-            // Rectangle has been drawn, trigger screenshot
-            processSelection(rectParams);
+        const width = Math.abs(currentX - this.startX);
+        const height = Math.abs(currentY - this.startY);
+        const left = Math.min(currentX, this.startX);
+        const top = Math.min(currentY, this.startY);
+        this.selectionRect.style.left = `${left}px`;
+        this.selectionRect.style.top = `${top}px`;
+        this.selectionRect.style.width = `${width}px`;
+        this.selectionRect.style.height = `${height}px`;
+        this.rectParams = { x: left, y: top, width, height };
+      });
+      this.overlay.addEventListener("mouseup", () => {
+        if (!this.isDrawing) return;
+        this.isDrawing = false;
+        document.body.style.userSelect = "";
+        if (this.rectParams && this.rectParams.width > 10 && this.rectParams.height > 10) {
+          this.onComplete(this.rectParams);
         } else {
-            // Clicked without dragging, cancel
-            resetOverlay();
+          this.reset();
         }
-    });
-
-    function resetOverlay() {
-        overlay.style.display = 'none';
-        overlay.classList.remove('fw-drawing');
-        selectionRect.style.width = '0px';
-        selectionRect.style.height = '0px';
-        rectParams = null;
+      });
     }
+    show() {
+      this.overlay.style.display = "block";
+      document.body.style.userSelect = "none";
+    }
+    hide() {
+      this.overlay.style.display = "none";
+    }
+    reset() {
+      this.hide();
+      this.overlay.classList.remove("fw-drawing");
+      this.selectionRect.style.width = "0px";
+      this.selectionRect.style.height = "0px";
+      this.rectParams = null;
+    }
+  };
 
-    // Modal Setup
-    const modalContainer = document.createElement('div');
-    modalContainer.id = 'fw-modal-container';
-
-    modalContainer.innerHTML = `
+  // src/ui/Modal.ts
+  var Modal = class {
+    constructor(callbacks) {
+      this.callbacks = callbacks;
+      this.isEditingPrompt = false;
+      this.basePrompt = "";
+      this.availableSources = [];
+      this.configDefaults = { repos: [], branches: [], personas: [] };
+      this.container = document.createElement("div");
+      this.container.id = "fw-modal-container";
+      this.container.innerHTML = `
         <div id="fw-modal">
             <div class="fw-modal-header">
                 <h2>Feedback Agent</h2>
@@ -168,476 +238,485 @@
             </div>
         </div>
     `;
-    document.body.appendChild(modalContainer);
-
-    const closeBtn = modalContainer.querySelector('.fw-close-btn');
-    const minimizeBtn = modalContainer.querySelector('.fw-minimize-btn');
-    const cancelBtn = modalContainer.querySelector('.fw-btn-cancel');
-    const submitBtn = modalContainer.querySelector('.fw-btn-submit');
-    const previewImg = modalContainer.querySelector('#fw-screenshot-preview');
-    const textArea = modalContainer.querySelector('#fw-feedback-text');
-
-    const inputArea = modalContainer.querySelector('#fw-input-area');
-    const loadingArea = modalContainer.querySelector('#fw-loading-area');
-    const resultArea = modalContainer.querySelector('#fw-result-area');
-    const proposedPrompt = modalContainer.querySelector('#fw-proposed-prompt');
-    const editPromptBtn = modalContainer.querySelector('#fw-edit-prompt');
-    const successContainer = modalContainer.querySelector('#fw-success-container');
-    const repoSelect = modalContainer.querySelector('#fw-repo-select');
-    const branchSelect = modalContainer.querySelector('#fw-branch-select');
-    const personaSelect = modalContainer.querySelector('#fw-persona-select');
-    const refreshReposBtn = modalContainer.querySelector('#fw-refresh-sources');
-
-    let currentFeedbackDir = null;
-    let basePrompt = ''; // Original prompt from Groq
-    let isEditingPrompt = false;
-    let availableSources = [];
-    let configDefaults = { repos: [], branches: [], personas: [] };
-
-    closeBtn.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
-    minimizeBtn.addEventListener('click', minimizeModal);
-    minimizedBadge.addEventListener('click', maximizeModal);
-    refreshReposBtn.addEventListener('click', () => fetchSources(true));
-
-    editPromptBtn.addEventListener('click', () => {
-        isEditingPrompt = !isEditingPrompt;
-        proposedPrompt.readOnly = !isEditingPrompt;
-        if (isEditingPrompt) {
-            proposedPrompt.focus();
-            editPromptBtn.classList.add('fw-btn-active');
+      document.body.appendChild(this.container);
+      this.closeBtn = this.container.querySelector(".fw-close-btn");
+      this.minimizeBtn = this.container.querySelector(".fw-minimize-btn");
+      this.cancelBtn = this.container.querySelector(".fw-btn-cancel");
+      this.submitBtn = this.container.querySelector(".fw-btn-submit");
+      this.previewImg = this.container.querySelector("#fw-screenshot-preview");
+      this.textArea = this.container.querySelector("#fw-feedback-text");
+      this.inputArea = this.container.querySelector("#fw-input-area");
+      this.loadingArea = this.container.querySelector("#fw-loading-area");
+      this.resultArea = this.container.querySelector("#fw-result-area");
+      this.proposedPrompt = this.container.querySelector("#fw-proposed-prompt");
+      this.editPromptBtn = this.container.querySelector("#fw-edit-prompt");
+      this.successContainer = this.container.querySelector("#fw-success-container");
+      this.repoSelect = this.container.querySelector("#fw-repo-select");
+      this.branchSelect = this.container.querySelector("#fw-branch-select");
+      this.personaSelect = this.container.querySelector("#fw-persona-select");
+      this.refreshReposBtn = this.container.querySelector("#fw-refresh-sources");
+      this.attachEvents();
+    }
+    attachEvents() {
+      this.closeBtn.addEventListener("click", this.callbacks.onClose);
+      this.cancelBtn.addEventListener("click", this.callbacks.onClose);
+      this.minimizeBtn.addEventListener("click", this.callbacks.onMinimize);
+      this.refreshReposBtn.addEventListener("click", this.callbacks.onRefreshSources);
+      this.editPromptBtn.addEventListener("click", () => {
+        this.isEditingPrompt = !this.isEditingPrompt;
+        this.proposedPrompt.readOnly = !this.isEditingPrompt;
+        if (this.isEditingPrompt) {
+          this.proposedPrompt.focus();
+          this.editPromptBtn.classList.add("fw-btn-active");
         } else {
-            editPromptBtn.classList.remove('fw-btn-active');
+          this.editPromptBtn.classList.remove("fw-btn-active");
         }
-    });
-
-    personaSelect.addEventListener('change', () => {
-        if (!isEditingPrompt) {
-            updatePromptPreview();
+      });
+      this.personaSelect.addEventListener("change", () => {
+        if (!this.isEditingPrompt) {
+          this.updatePromptPreview();
         }
-    });
-
-    repoSelect.addEventListener('change', () => {
-        updateBranchOptions();
-    });
-
-    // Fetch data once on load to warm cache
-    fetchDefaults().then(() => {
-        fetchSources();
-        fetchPersonas();
-    });
-
-    submitBtn.addEventListener('click', () => {
-        if (submitBtn.innerText === 'Analyze Feedback') {
-            analyzeFeedback();
-        } else if (submitBtn.innerText === 'Send to Jules') {
-            sendToJules();
+      });
+      this.repoSelect.addEventListener("change", () => {
+        this.updateBranchOptions();
+      });
+      this.submitBtn.addEventListener("click", () => {
+        if (this.submitBtn.innerText === "Analyze Feedback") {
+          this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
+        } else if (this.submitBtn.innerText === "Send to Jules") {
+          this.callbacks.onSubmitSend({
+            sourceId: this.repoSelect.value,
+            branch: this.branchSelect.value,
+            persona: this.personaSelect.value,
+            prompt: this.proposedPrompt.value
+          });
         }
-    });
-
-    function analyzeFeedback() {
-        submitBtn.disabled = true;
-        inputArea.style.display = 'none';
-        loadingArea.style.display = 'flex';
-        cancelBtn.style.display = 'none';
-
-        const metadata = {
-            url: window.location.href,
-            pathname: window.location.pathname,
-            hostname: window.location.hostname,
-            pageTitle: document.title,
-            userAgent: navigator.userAgent,
-            screenResolution: `${window.screen.width}x${window.screen.height}`,
-            windowSize: `${window.innerWidth}x${window.innerHeight}`,
-            timestamp: new Date().toISOString()
-        };
-
-        const payload = {
-            text: textArea.value,
-            screenshot: previewImg.src,
-            metadata: metadata
-        };
-
-        fetch(config.endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-
-                currentFeedbackDir = data.feedbackDir;
-                basePrompt = data.prompt;
-                updatePromptPreview();
-
-                loadingArea.style.display = 'none';
-                resultArea.style.display = 'flex';
-
-                submitBtn.innerText = 'Send to Jules';
-                submitBtn.disabled = false;
-                cancelBtn.style.display = 'inline-block';
-            })
-            .catch(err => {
-                console.error("Analysis failed:", err);
-                alert("Analysis failed. See console.");
-                closeModal();
-            });
+      });
     }
-
-    function sendToJules() {
-        submitBtn.innerText = 'Sending...';
-        submitBtn.disabled = true;
-
-        const baseUrl = config.endpoint.split('/api/feedback')[0];
-        const julesUrl = `${baseUrl}/api/send-to-jules`;
-
-        const payload = {
-            feedbackDir: currentFeedbackDir,
-            sourceId: repoSelect.value,
-            branch: branchSelect.value,
-            persona: personaSelect.value,
-            prompt: proposedPrompt.value
-        };
-
-        fetch(julesUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-            .then(res => res.json())
-            .then(data => {
-                successContainer.innerHTML = '<div class="fw-success-msg">Success! Jules has started the task.</div>';
-                submitBtn.style.display = 'none';
-                cancelBtn.innerText = 'Close';
-            })
-            .catch(err => {
-                console.error("Jules trigger failed:", err);
-                alert("Failed to trigger Jules.");
-                submitBtn.innerText = 'Send to Jules';
-                submitBtn.disabled = false;
-            });
+    setPreviewImage(dataUrl) {
+      this.previewImg.src = dataUrl;
     }
-
-    function fetchDefaults() {
-        const baseUrl = config.endpoint.split('/api/feedback')[0];
-        return fetch(`${baseUrl}/api/jules/defaults`)
-            .then(res => res.json())
-            .then(data => {
-                configDefaults = data;
-            })
-            .catch(err => {
-                console.error("Failed to fetch defaults:", err);
-            });
+    show() {
+      this.container.style.display = "flex";
+      this.textArea.focus();
     }
-
-    function fetchSources(refresh = false) {
-        refreshReposBtn.classList.add('fw-refresh-spinning');
-        const baseUrl = config.endpoint.split('/api/feedback')[0];
-
-        fetch(`${baseUrl}/api/jules/sources${refresh ? '?refresh=true' : ''}`)
-            .then(res => res.json())
-            .then(data => {
-                const sources = data.sources || [];
-                availableSources = sources;
-
-                // Partition into defaults and rest
-                const defaults = [];
-                const others = [];
-
-                // Keep defaults in exact order from configDefaults.repos
-                configDefaults.repos.forEach(repoId => {
-                    const found = sources.find(s => s.name.replace('sources/', '') === repoId);
-                    if (found) defaults.push(found);
-                });
-
-                sources.forEach(s => {
-                    const id = s.name.replace('sources/', '');
-                    if (!configDefaults.repos.includes(id)) {
-                        others.push(s);
-                    }
-                });
-
-                // Sort others alphabetically by their label
-                others.sort((a, b) => {
-                    const idA = a.name.replace('sources/', '');
-                    const labelA = a.githubRepo ? `${a.githubRepo.owner}/${a.githubRepo.repo}` : idA;
-                    const idB = b.name.replace('sources/', '');
-                    const labelB = b.githubRepo ? `${b.githubRepo.owner}/${b.githubRepo.repo}` : idB;
-                    return labelA.localeCompare(labelB);
-                });
-
-                // Generate HTML with divider
-                let html = defaults.map(s => {
-                    const id = s.name.replace('sources/', '');
-                    const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
-                    return `<option value="${id}">${label}</option>`;
-                }).join('');
-
-                if (defaults.length > 0 && others.length > 0) {
-                    html += '<option disabled>──────────</option>';
-                }
-
-                html += others.map(s => {
-                    const id = s.name.replace('sources/', '');
-                    const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
-                    return `<option value="${id}">${label}</option>`;
-                }).join('');
-
-                repoSelect.innerHTML = html;
-                updateBranchOptions();
-            })
-            .catch(err => {
-                console.error("Failed to fetch sources:", err);
-                repoSelect.innerHTML = '<option value="">Error loading sources</option>';
-            })
-            .finally(() => {
-                refreshReposBtn.classList.remove('fw-refresh-spinning');
-            });
+    hide() {
+      this.container.style.display = "none";
     }
-
-    function fetchPersonas() {
-        const baseUrl = config.endpoint.split('/api/feedback')[0];
-
-        fetch(`${baseUrl}/api/jules/personas`)
-            .then(res => res.json())
-            .then(data => {
-                const personas = data.personas || [];
-
-                // Partition into defaults and rest
-                const defaults = [];
-                const others = [];
-
-                // Keep defaults in exact order from configDefaults.personas
-                configDefaults.personas.forEach(personaName => {
-                    const found = personas.find(p => p === personaName);
-                    if (found) defaults.push(found);
-                });
-
-                personas.forEach(p => {
-                    if (!configDefaults.personas.includes(p)) {
-                        others.push(p);
-                    }
-                });
-
-                // Sort others alphabetically
-                others.sort((a, b) => a.localeCompare(b));
-
-                // Generate HTML with divider
-                let html = defaults.map(p => {
-                    return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
-                }).join('');
-
-                if (defaults.length > 0 && others.length > 0) {
-                    html += '<option disabled>──────────</option>';
-                }
-
-                html += others.map(p => {
-                    return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
-                }).join('');
-
-                personaSelect.innerHTML = html;
-            })
-            .catch(err => {
-                console.error("Failed to fetch personas:", err);
-                personaSelect.innerHTML = '<option value="">Error loading personas</option>';
-            });
+    minimize() {
+      this.container.style.visibility = "hidden";
+      this.container.style.pointerEvents = "none";
     }
-
-    function updateBranchOptions() {
-        const selectedId = repoSelect.value;
-        const source = availableSources.find(s => s.name.replace('sources/', '') === selectedId);
-
-        if (!source || !source.githubRepo) {
-            branchSelect.innerHTML = '<option value="dev">dev (default)</option>';
-            return;
-        }
-
-        const branches = source.githubRepo.branches || [];
-        const defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : 'dev';
-
-        if (branches.length === 0) {
-            branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
-            return;
-        }
-
-        // Partition into defaults and rest
-        const defaults = [];
-        const others = [];
-
-        // Keep defaults in exact order from configDefaults.branches
-        configDefaults.branches.forEach(branchName => {
-            const found = branches.find(b => b.displayName === branchName);
-            if (found) defaults.push(found);
+    maximize() {
+      this.container.style.visibility = "visible";
+      this.container.style.pointerEvents = "auto";
+    }
+    reset() {
+      this.hide();
+      this.textArea.value = "";
+      this.previewImg.src = "";
+      this.basePrompt = "";
+      this.container.style.visibility = "";
+      this.container.style.pointerEvents = "";
+      this.inputArea.style.display = "block";
+      this.loadingArea.style.display = "none";
+      this.resultArea.style.display = "none";
+      this.submitBtn.innerText = "Analyze Feedback";
+      this.submitBtn.disabled = false;
+      this.submitBtn.style.display = "inline-block";
+      this.cancelBtn.innerText = "Cancel";
+      this.cancelBtn.style.display = "inline-block";
+      this.successContainer.innerHTML = "";
+    }
+    setLoading() {
+      this.submitBtn.disabled = true;
+      this.inputArea.style.display = "none";
+      this.loadingArea.style.display = "flex";
+      this.cancelBtn.style.display = "none";
+    }
+    setResult(prompt) {
+      this.basePrompt = prompt;
+      this.updatePromptPreview();
+      this.loadingArea.style.display = "none";
+      this.resultArea.style.display = "flex";
+      this.submitBtn.innerText = "Send to Jules";
+      this.submitBtn.disabled = false;
+      this.cancelBtn.style.display = "inline-block";
+    }
+    setSending() {
+      this.submitBtn.innerText = "Sending...";
+      this.submitBtn.disabled = true;
+    }
+    setSuccess() {
+      this.successContainer.innerHTML = '<div class="fw-success-msg">Success! Jules has started the task.</div>';
+      this.submitBtn.style.display = "none";
+      this.cancelBtn.innerText = "Close";
+    }
+    setFailed(isAnalyze) {
+      if (isAnalyze) {
+        this.reset();
+      } else {
+        this.submitBtn.innerText = "Send to Jules";
+        this.submitBtn.disabled = false;
+      }
+    }
+    setRefreshSpinning(spinning) {
+      if (spinning) {
+        this.refreshReposBtn.classList.add("fw-refresh-spinning");
+      } else {
+        this.refreshReposBtn.classList.remove("fw-refresh-spinning");
+      }
+    }
+    setConfigDefaults(defaults) {
+      this.configDefaults = defaults;
+    }
+    setSources(sources) {
+      this.availableSources = sources;
+      const defaults = [];
+      const others = [];
+      if (this.configDefaults.repos) {
+        this.configDefaults.repos.forEach((repoId) => {
+          const found = sources.find((s) => s.name.replace("sources/", "") === repoId);
+          if (found) defaults.push(found);
         });
-
-        branches.forEach(b => {
-            const name = b.displayName;
-            if (!configDefaults.branches.includes(name)) {
-                others.push(b);
-            }
+      }
+      if (this.configDefaults.repos) {
+        sources.forEach((s) => {
+          const id = s.name.replace("sources/", "");
+          if (!this.configDefaults.repos.includes(id)) {
+            others.push(s);
+          }
         });
+      } else {
+        sources.forEach((s) => others.push(s));
+      }
+      others.sort((a, b) => {
+        const idA = a.name.replace("sources/", "");
+        const labelA = a.githubRepo ? `${a.githubRepo.owner}/${a.githubRepo.repo}` : idA;
+        const idB = b.name.replace("sources/", "");
+        const labelB = b.githubRepo ? `${b.githubRepo.owner}/${b.githubRepo.repo}` : idB;
+        return labelA.localeCompare(labelB);
+      });
+      let html = defaults.map((s) => {
+        const id = s.name.replace("sources/", "");
+        const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
+        return `<option value="${id}">${label}</option>`;
+      }).join("");
+      if (defaults.length > 0 && others.length > 0) {
+        html += "<option disabled>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</option>";
+      }
+      html += others.map((s) => {
+        const id = s.name.replace("sources/", "");
+        const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
+        return `<option value="${id}">${label}</option>`;
+      }).join("");
+      this.repoSelect.innerHTML = html;
+      this.updateBranchOptions();
+    }
+    setSourcesError() {
+      this.repoSelect.innerHTML = '<option value="">Error loading sources</option>';
+    }
+    setPersonas(personas) {
+      const defaults = [];
+      const others = [];
+      if (this.configDefaults.personas) {
+        this.configDefaults.personas.forEach((personaName) => {
+          const found = personas.find((p) => p === personaName);
+          if (found) defaults.push(found);
+        });
+      }
+      if (this.configDefaults.personas) {
+        personas.forEach((p) => {
+          if (!this.configDefaults.personas.includes(p)) {
+            others.push(p);
+          }
+        });
+      } else {
+        personas.forEach((p) => others.push(p));
+      }
+      others.sort((a, b) => a.localeCompare(b));
+      let html = defaults.map((p) => {
+        return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+      }).join("");
+      if (defaults.length > 0 && others.length > 0) {
+        html += "<option disabled>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</option>";
+      }
+      html += others.map((p) => {
+        return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+      }).join("");
+      this.personaSelect.innerHTML = html;
+    }
+    setPersonasError() {
+      this.personaSelect.innerHTML = '<option value="">Error loading personas</option>';
+    }
+    updateBranchOptions() {
+      const selectedId = this.repoSelect.value;
+      const source = this.availableSources.find((s) => s.name.replace("sources/", "") === selectedId);
+      if (!source || !source.githubRepo) {
+        this.branchSelect.innerHTML = '<option value="dev">dev (default)</option>';
+        return;
+      }
+      const branches = source.githubRepo.branches || [];
+      const defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : "dev";
+      if (branches.length === 0) {
+        this.branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
+        return;
+      }
+      const defaults = [];
+      const others = [];
+      if (this.configDefaults.branches) {
+        this.configDefaults.branches.forEach((branchName) => {
+          const found = branches.find((b) => b.displayName === branchName);
+          if (found) defaults.push(found);
+        });
+      }
+      if (this.configDefaults.branches) {
+        branches.forEach((b) => {
+          const name = b.displayName;
+          if (!this.configDefaults.branches.includes(name)) {
+            others.push(b);
+          }
+        });
+      } else {
+        branches.forEach((b) => others.push(b));
+      }
+      others.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      let html = defaults.map((b) => {
+        const name = b.displayName;
+        return `<option value="${name}" ${name === defaultBranch ? "selected" : ""}>${name}${name === defaultBranch ? " (default)" : ""}</option>`;
+      }).join("");
+      if (defaults.length > 0 && others.length > 0) {
+        html += "<option disabled>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</option>";
+      }
+      html += others.map((b) => {
+        const name = b.displayName;
+        return `<option value="${name}" ${name === defaultBranch ? "selected" : ""}>${name}${name === defaultBranch ? " (default)" : ""}</option>`;
+      }).join("");
+      this.branchSelect.innerHTML = html;
+    }
+    updatePromptPreview() {
+      const persona = this.personaSelect.value;
+      if (persona) {
+        this.proposedPrompt.value = `You are the ${persona}. Read AGENTS.md first. ${this.basePrompt}`;
+      } else {
+        this.proposedPrompt.value = this.basePrompt;
+      }
+    }
+  };
 
-        // Sort others alphabetically
-        others.sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-        // Generate HTML with divider
-        let html = defaults.map(b => {
-            const name = b.displayName;
-            return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
-        }).join('');
-
-        if (defaults.length > 0 && others.length > 0) {
-            html += '<option disabled>──────────</option>';
+  // src/utils/screenshot.ts
+  var ScreenshotUtil = class {
+    constructor() {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    captureSelection(rect) {
+      return __async(this, null, function* () {
+        if (typeof htmlToImage === "undefined") {
+          throw new Error("html-to-image is still loading or failed to load. Please try again in a moment.");
         }
-
-        html += others.map(b => {
-            const name = b.displayName;
-            return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
-        }).join('');
-
-        branchSelect.innerHTML = html;
-    }
-
-    function updatePromptPreview() {
-        const persona = personaSelect.value;
-        if (persona) {
-            proposedPrompt.value = `You are the ${persona}. Read AGENTS.md first. ${basePrompt}`;
-        } else {
-            proposedPrompt.value = basePrompt;
-        }
-    }
-
-    function minimizeModal() {
-        modalContainer.style.visibility = 'hidden';
-        modalContainer.style.pointerEvents = 'none';
-        minimizedBadge.style.display = 'flex';
-    }
-
-    function maximizeModal() {
-        modalContainer.style.visibility = 'visible';
-        modalContainer.style.pointerEvents = 'auto';
-        minimizedBadge.style.display = 'none';
-    }
-
-    function closeModal() {
-        modalContainer.style.display = 'none';
-        minimizedBadge.style.display = 'none';
-        textArea.value = '';
-        previewImg.src = '';
-        currentFeedbackDir = null;
-
-        // Reset modal visibility
-        modalContainer.style.visibility = '';
-        modalContainer.style.pointerEvents = '';
-
-        // Reset areas
-        inputArea.style.display = 'block';
-        loadingArea.style.display = 'none';
-        resultArea.style.display = 'none';
-
-        submitBtn.innerText = 'Analyze Feedback';
-        submitBtn.disabled = false;
-        submitBtn.style.display = 'inline-block';
-        cancelBtn.innerText = 'Cancel';
-        cancelBtn.style.display = 'inline-block';
-        successContainer.innerHTML = '';
-    }
-
-    function processSelection(rect) {
-        // New feedback capture always clears any old minimized state
-        maximizeModal();
-    
-        // Hide overlay temporarily to capture what's underneath
-        overlay.style.display = 'none';
-    
-        if (typeof htmlToImage === 'undefined') {
-            alert('html-to-image is still loading or failed to load. Please try again in a moment.');
-            resetOverlay();
-            return;
-        }
-    
         console.log("[FEEDBACK-WIDGET] Starting screenshot capture with html-to-image...");
-    
-        // Add a visual indicator that capturing is in progress
-        const capturingToast = document.createElement('div');
+        const capturingToast = document.createElement("div");
         capturingToast.innerText = "Capturing...";
         capturingToast.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999999;";
         document.body.appendChild(capturingToast);
-    
-        // Capture using toPng with extra safety filters
-        htmlToImage.toPng(document.body, {
-            backgroundColor: '#ffffff',
+        try {
+          const dataUrl = yield htmlToImage.toPng(document.body, {
+            backgroundColor: "#ffffff",
             pixelRatio: 1,
             cacheBust: true,
             filter: (node) => {
-                // Exclude scripts and our own widget elements to prevent capture errors/recursion
-                if (node.tagName === 'SCRIPT') return false;
-                if (node.id && node.id.startsWith('fw-')) return false;
-                return true;
+              if (node.tagName === "SCRIPT") return false;
+              if (node.id && node.id.startsWith("fw-")) return false;
+              return true;
             }
-        }).then(dataUrl => {
-            console.log("[FEEDBACK-WIDGET] Capture success. dataUrl length:", dataUrl.length);
-            
-            // Safety check for common failure modes where text/html is returned
-            if (!dataUrl || !dataUrl.startsWith("data:image/")) {
-                console.error("[FEEDBACK-WIDGET] Captured invalid dataUrl type:", dataUrl.substring(0, 100));
-                throw new Error("Captured data is not an image. It might be an error page or blocked resource.");
-            }
-    
+          });
+          console.log("[FEEDBACK-WIDGET] Capture success. dataUrl length:", dataUrl.length);
+          if (!dataUrl || !dataUrl.startsWith("data:image/")) {
+            console.error("[FEEDBACK-WIDGET] Captured invalid dataUrl type:", dataUrl.substring(0, 100));
+            throw new Error("Captured data is not an image. It might be an error page or blocked resource.");
+          }
+          return yield new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
-                console.log("[FEEDBACK-WIDGET] Rendering selection overlay...");
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                
-                ctx.drawImage(img, 0, 0);
-    
-                const rx = rect.x + window.scrollX;
-                const ry = rect.y + window.scrollY;
-                const rw = rect.width;
-                const rh = rect.height;
-    
-                // Draw dark overlay on unselected areas
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                ctx.fillRect(0, 0, canvas.width, ry); // Top
-                ctx.fillRect(0, ry + rh, canvas.width, canvas.height - (ry + rh)); // Bottom
-                ctx.fillRect(0, ry, rx, rh); // Left
-                ctx.fillRect(rx + rw, ry, canvas.width - (rx + rw), rh); // Right
-    
-                // Draw red border around selected area
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rx, ry, rw, rh);
-    
-                // Update final preview
-                const finalDataUrl = canvas.toDataURL('image/png');
-                previewImg.src = finalDataUrl;
-    
-                if (document.body.contains(capturingToast)) {
-                    document.body.removeChild(capturingToast);
-                }
-    
-                modalContainer.style.display = 'flex';
-                textArea.focus();
-                resetOverlay();
+              console.log("[FEEDBACK-WIDGET] Rendering selection overlay...");
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0);
+              const rx = rect.x + window.scrollX;
+              const ry = rect.y + window.scrollY;
+              const rw = rect.width;
+              const rh = rect.height;
+              ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+              ctx.fillRect(0, 0, canvas.width, ry);
+              ctx.fillRect(0, ry + rh, canvas.width, canvas.height - (ry + rh));
+              ctx.fillRect(0, ry, rx, rh);
+              ctx.fillRect(rx + rw, ry, canvas.width - (rx + rw), rh);
+              ctx.strokeStyle = "#ff0000";
+              ctx.lineWidth = 2;
+              ctx.strokeRect(rx, ry, rw, rh);
+              const finalDataUrl = canvas.toDataURL("image/png");
+              if (document.body.contains(capturingToast)) {
+                document.body.removeChild(capturingToast);
+              }
+              resolve(finalDataUrl);
             };
             img.onerror = (e) => {
-                console.error("[FEEDBACK-WIDGET] Image object loading error.", e);
-                throw new Error("Failed to load captured image into preview element.");
+              console.error("[FEEDBACK-WIDGET] Image object loading error.", e);
+              if (document.body.contains(capturingToast)) {
+                document.body.removeChild(capturingToast);
+              }
+              reject(new Error("Failed to load captured image into preview element."));
             };
             img.src = dataUrl;
-        }).catch(err => {
-            console.error("[FEEDBACK-WIDGET] Capture pipeline failed:", err);
-            alert("Screenshot capture failed. Error: " + (err.message || "Unknown error"));
-            if (document.body.contains(capturingToast)) {
-                document.body.removeChild(capturingToast);
-            }
-            resetOverlay();
-        });
+          });
+        } catch (err) {
+          console.error("[FEEDBACK-WIDGET] Capture pipeline failed:", err);
+          if (document.body.contains(capturingToast)) {
+            document.body.removeChild(capturingToast);
+          }
+          throw new Error(err.message || "Unknown error");
+        }
+      });
     }
+  };
 
+  // src/index.ts
+  (function() {
+    const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: "http://localhost:12345/api/feedback" };
+    const api = new APIClient(config);
+    const screenshotUtil = new ScreenshotUtil();
+    let currentFeedbackDir = null;
+    const trigger = new Trigger(
+      () => {
+        modal.reset();
+        overlay.show();
+      },
+      () => {
+        modal.maximize();
+        trigger.hideBadge();
+      }
+    );
+    const modal = new Modal({
+      onClose: () => {
+        modal.reset();
+        trigger.hideBadge();
+        currentFeedbackDir = null;
+      },
+      onMinimize: () => {
+        modal.minimize();
+        trigger.showBadge();
+      },
+      onSubmitAnalyze: (text, screenshotUrl) => __async(null, null, function* () {
+        modal.setLoading();
+        const metadata = {
+          url: window.location.href,
+          pathname: window.location.pathname,
+          hostname: window.location.hostname,
+          pageTitle: document.title,
+          userAgent: navigator.userAgent,
+          screenResolution: `${window.screen.width}x${window.screen.height}`,
+          windowSize: `${window.innerWidth}x${window.innerHeight}`,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        const payload = {
+          text,
+          screenshot: screenshotUrl,
+          metadata
+        };
+        try {
+          const data = yield api.analyzeFeedback(payload);
+          if (data.error) throw new Error(data.error);
+          currentFeedbackDir = data.feedbackDir || null;
+          modal.setResult(data.prompt || "");
+        } catch (err) {
+          console.error("Analysis failed:", err);
+          alert("Analysis failed. See console.");
+          modal.setFailed(true);
+        }
+      }),
+      onSubmitSend: (payload) => __async(null, null, function* () {
+        modal.setSending();
+        const julesPayload = {
+          feedbackDir: currentFeedbackDir,
+          sourceId: payload.sourceId,
+          branch: payload.branch,
+          persona: payload.persona,
+          prompt: payload.prompt
+        };
+        try {
+          yield api.sendToJules(julesPayload);
+          modal.setSuccess();
+        } catch (err) {
+          console.error("Jules trigger failed:", err);
+          alert("Failed to trigger Jules.");
+          modal.setFailed(false);
+        }
+      }),
+      onRefreshSources: () => {
+        fetchSources(true);
+      }
+    });
+    const overlay = new Overlay((rect) => {
+      processSelection(rect);
+    });
+    function processSelection(rect) {
+      return __async(this, null, function* () {
+        modal.maximize();
+        trigger.hideBadge();
+        overlay.hide();
+        try {
+          const dataUrl = yield screenshotUtil.captureSelection(rect);
+          modal.setPreviewImage(dataUrl);
+          modal.show();
+        } catch (err) {
+          alert("Screenshot capture failed. Error: " + err.message);
+        } finally {
+          overlay.reset();
+        }
+      });
+    }
+    function initData() {
+      return __async(this, null, function* () {
+        try {
+          const defaults = yield api.fetchDefaults();
+          modal.setConfigDefaults(defaults);
+          fetchSources();
+          fetchPersonas();
+        } catch (err) {
+          console.error("Failed to init defaults:", err);
+        }
+      });
+    }
+    function fetchSources(refresh = false) {
+      return __async(this, null, function* () {
+        modal.setRefreshSpinning(true);
+        try {
+          const data = yield api.fetchSources(refresh);
+          modal.setSources(data.sources || []);
+        } catch (err) {
+          console.error("Failed to fetch sources:", err);
+          modal.setSourcesError();
+        } finally {
+          modal.setRefreshSpinning(false);
+        }
+      });
+    }
+    function fetchPersonas() {
+      return __async(this, null, function* () {
+        try {
+          const data = yield api.fetchPersonas();
+          modal.setPersonas(data.personas || []);
+        } catch (err) {
+          console.error("Failed to fetch personas:", err);
+          modal.setPersonasError();
+        }
+      });
+    }
+    initData();
+  })();
 })();
