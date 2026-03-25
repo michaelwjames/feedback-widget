@@ -30,8 +30,8 @@ describe('Feedback Widget', () => {
         // Clear the body
         document.body.innerHTML = '';
         // Mock global FEEDBACK_WIDGET_CONFIG if needed
-        window.FEEDBACK_WIDGET_CONFIG = { endpoint: 'http://localhost:3000/api/feedback' };
-        
+        window.FEEDBACK_WIDGET_CONFIG = { endpoint: 'http://localhost:12345/api/feedback' };
+
         // Execute the script
         const script = document.createElement('script');
         script.textContent = widgetScript;
@@ -54,9 +54,9 @@ describe('Feedback Widget', () => {
     it('should show the overlay when the button is clicked', () => {
         const triggerBtn = document.getElementById('fw-trigger-btn');
         const overlay = document.getElementById('fw-overlay');
-        
+
         expect(overlay.style.display).toBe(''); // Default state
-        
+
         triggerBtn.click();
         expect(overlay.style.display).toBe('block');
     });

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,17 +14,20 @@
             background-color: #f0f4f8;
             color: #333;
         }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
             padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         h1 {
             color: #2b6cb0;
         }
+
         .dummy-box {
             background-color: #e2e8f0;
             border: 1px solid #cbd5e0;
@@ -31,6 +35,7 @@
             margin-top: 20px;
             border-radius: 4px;
         }
+
         img {
             max-width: 100%;
             border-radius: 4px;
@@ -38,42 +43,50 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="container">
-    <h1>Sample Application</h1>
-    <p>This is a sample application to test the feedback widget. Try clicking the "Feedback" button on the right edge of the screen.</p>
-    
-    <!-- Localhost notice for better debugging -->
-    <div id="origin-warning" style="display:none; background: #fff5f5; border: 1px solid #feb2b2; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #c53030;">
-        <strong>Warning:</strong> You are opening this via <code>file://</code>. 
-        Screenshot capture may fail due to browser security policies. 
-        Please open <strong><a href="http://localhost:3000" style="color: #c53030; text-decoration: underline;">http://localhost:3000</a></strong> instead.
+    <div class="container">
+        <h1>Sample Application</h1>
+        <p>This is a sample application to test the feedback widget. Try clicking the "Feedback" button on the right
+            edge of the screen.</p>
+
+        <!-- Localhost notice for better debugging -->
+        <div id="origin-warning"
+            style="display:none; background: #fff5f5; border: 1px solid #feb2b2; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #c53030;">
+            <strong>Warning:</strong> You are opening this via <code>file://</code>.
+            Screenshot capture may fail due to browser security policies.
+            Please open <strong><a href="http://localhost:12345"
+                    style="color: #c53030; text-decoration: underline;">http://localhost:12345</a></strong> instead.
+        </div>
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.getElementById('origin-warning').style.display = 'block';
+            }
+        </script>
+
+        <div class="dummy-box">
+            <h2>Interesting Component</h2>
+            <p>You can drag a rectangle over this box to capture it in a screenshot and send feedback about it.</p>
+            <button
+                style="padding: 10px; background-color: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer;">Action
+                Button</button>
+        </div>
+
+        <!-- Dummy image for interesting screenshot content -->
+        <div
+            style="width: 100%; height: 200px; background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); margin-top: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">
+            Beautiful Gradient Image
+        </div>
     </div>
+
     <script>
-        if (window.location.protocol === 'file:') {
-            document.getElementById('origin-warning').style.display = 'block';
-        }
+        window.FEEDBACK_WIDGET_CONFIG = {
+            endpoint: 'http://localhost:12345/api/feedback'
+        };
     </script>
-    
-    <div class="dummy-box">
-        <h2>Interesting Component</h2>
-        <p>You can drag a rectangle over this box to capture it in a screenshot and send feedback about it.</p>
-        <button style="padding: 10px; background-color: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer;">Action Button</button>
-    </div>
-
-    <!-- Dummy image for interesting screenshot content -->
-    <div style="width: 100%; height: 200px; background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); margin-top: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">
-        Beautiful Gradient Image
-    </div>
-</div>
-
-<script>
-    window.FEEDBACK_WIDGET_CONFIG = {
-        endpoint: 'http://localhost:3000/api/feedback'
-    };
-</script>
-<script src="feedback-widget.js"></script>
+    <script src="feedback-widget.js"></script>
 
 </body>
+
 </html>

@@ -21,7 +21,7 @@ install:
 	pip3 install -r agents/jules-subagent/requirements.txt
 
 run:
-	@echo "Starting the Feedback Server at http://localhost:3000..."
+	@echo "Starting the Feedback Server at http://localhost:12345..."
 	cd feedback-tool && npm start
 
 test:

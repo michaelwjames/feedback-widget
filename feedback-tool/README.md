@@ -27,7 +27,7 @@ Set the global configuration before loading the JS:
 <script>
 window.FEEDBACK_WIDGET_CONFIG = {
     // The endpoint where the widget will POST/GET data.
-    endpoint: 'http://localhost:3000',
+    endpoint: 'http://localhost:12345',
 };
 </script>
 ```
@@ -56,7 +56,7 @@ Add this at the end of your `<body>`:
     <!-- Configure Backend Endpoint -->
     <script>
     window.FEEDBACK_WIDGET_CONFIG = {
-        endpoint: 'http://localhost:3000'
+        endpoint: 'http://localhost:12345'
     };
     </script>
 

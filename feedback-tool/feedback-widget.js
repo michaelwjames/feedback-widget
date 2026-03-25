@@ -1,6 +1,6 @@
 (function () {
     // Read config
-    const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: 'http://localhost:3000/api/feedback' };
+    const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: 'http://localhost:12345/api/feedback' };
 
     // Inject the Feedback button
     const triggerBtn = document.createElement('button');
@@ -13,6 +13,13 @@
     script.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';
     script.async = true;
     document.head.appendChild(script);
+
+    // Minimized Toggle (Box icon)
+    const minimizedBadge = document.createElement('button');
+    minimizedBadge.id = 'fw-minimized-badge';
+    minimizedBadge.title = 'Maximize feedback';
+    minimizedBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>';
+    document.body.appendChild(minimizedBadge);
 
     // Create the overlay and selection rectangle
     const overlay = document.createElement('div');
@@ -30,6 +37,8 @@
     let rectParams = null;
 
     triggerBtn.addEventListener('click', () => {
+        // Ensure fresh feedback clicks always reset the process
+        closeModal(); // Close any existing modal and reset its state
         overlay.style.display = 'block';
         document.body.style.userSelect = 'none'; // Prevent text selection
     });
@@ -38,12 +47,12 @@
         isDrawing = true;
         startX = e.clientX;
         startY = e.clientY;
-        
+
         selectionRect.style.left = `${startX}px`;
         selectionRect.style.top = `${startY}px`;
         selectionRect.style.width = '0px';
         selectionRect.style.height = '0px';
-        
+
         overlay.classList.add('fw-drawing');
     });
 
@@ -71,7 +80,7 @@
         isDrawing = false;
 
         document.body.style.userSelect = '';
-        
+
         if (rectParams && rectParams.width > 10 && rectParams.height > 10) {
             // Rectangle has been drawn, trigger screenshot
             processSelection(rectParams);
@@ -92,12 +101,15 @@
     // Modal Setup
     const modalContainer = document.createElement('div');
     modalContainer.id = 'fw-modal-container';
-    
+
     modalContainer.innerHTML = `
         <div id="fw-modal">
             <div class="fw-modal-header">
                 <h2>Feedback Agent</h2>
-                <button class="fw-close-btn">&times;</button>
+                <div class="fw-modal-actions">
+                    <button class="fw-minimize-btn" title="Minimize">&minus;</button>
+                    <button class="fw-close-btn" title="Close">&times;</button>
+                </div>
             </div>
             <div class="fw-modal-body">
                 <div id="fw-input-area">
@@ -111,8 +123,13 @@
                 </div>
 
                 <div id="fw-result-area">
-                    <div style="font-size: 14px; margin-bottom: 5px; color: #4a5568; font-weight: bold;">Proposed Prompt for Jules:</div>
-                    <div id="fw-proposed-prompt"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <div style="font-size: 14px; color: #4a5568; font-weight: bold;">Proposed Prompt for Jules:</div>
+                        <button id="fw-edit-prompt" class="fw-icon-btn" title="Edit prompt">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                    </div>
+                    <textarea id="fw-proposed-prompt" readonly></textarea>
                     
                     <div class="fw-field-group">
                         <label class="fw-field-label">Target Repository</label>
@@ -128,7 +145,18 @@
 
                     <div class="fw-field-group">
                         <label class="fw-field-label">Target Branch</label>
-                        <input type="text" id="fw-branch-input" class="fw-input" value="dev" placeholder="e.g. main, dev" />
+                        <select id="fw-branch-select" class="fw-select">
+                            <option value="">Select a repository first</option>
+                        </select>
+                    </div>
+
+                    <div class="fw-field-group">
+                        <label class="fw-field-label">Agent Persona</label>
+                        <div class="fw-input-container">
+                            <select id="fw-persona-select" class="fw-select">
+                                <option value="">Loading personas...</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div id="fw-success-container"></div>
@@ -143,6 +171,7 @@
     document.body.appendChild(modalContainer);
 
     const closeBtn = modalContainer.querySelector('.fw-close-btn');
+    const minimizeBtn = modalContainer.querySelector('.fw-minimize-btn');
     const cancelBtn = modalContainer.querySelector('.fw-btn-cancel');
     const submitBtn = modalContainer.querySelector('.fw-btn-submit');
     const previewImg = modalContainer.querySelector('#fw-screenshot-preview');
@@ -152,19 +181,48 @@
     const loadingArea = modalContainer.querySelector('#fw-loading-area');
     const resultArea = modalContainer.querySelector('#fw-result-area');
     const proposedPrompt = modalContainer.querySelector('#fw-proposed-prompt');
+    const editPromptBtn = modalContainer.querySelector('#fw-edit-prompt');
     const successContainer = modalContainer.querySelector('#fw-success-container');
     const repoSelect = modalContainer.querySelector('#fw-repo-select');
-    const branchInput = modalContainer.querySelector('#fw-branch-input');
+    const branchSelect = modalContainer.querySelector('#fw-branch-select');
+    const personaSelect = modalContainer.querySelector('#fw-persona-select');
     const refreshReposBtn = modalContainer.querySelector('#fw-refresh-sources');
 
     let currentFeedbackDir = null;
+    let basePrompt = ''; // Original prompt from Groq
+    let isEditingPrompt = false;
+    let availableSources = [];
 
     closeBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
+    minimizeBtn.addEventListener('click', minimizeModal);
+    minimizedBadge.addEventListener('click', maximizeModal);
     refreshReposBtn.addEventListener('click', () => fetchSources(true));
 
-    // Fetch sources once on load to warm cache
+    editPromptBtn.addEventListener('click', () => {
+        isEditingPrompt = !isEditingPrompt;
+        proposedPrompt.readOnly = !isEditingPrompt;
+        if (isEditingPrompt) {
+            proposedPrompt.focus();
+            editPromptBtn.classList.add('fw-btn-active');
+        } else {
+            editPromptBtn.classList.remove('fw-btn-active');
+        }
+    });
+
+    personaSelect.addEventListener('change', () => {
+        if (!isEditingPrompt) {
+            updatePromptPreview();
+        }
+    });
+
+    repoSelect.addEventListener('change', () => {
+        updateBranchOptions();
+    });
+
+    // Fetch data once on load to warm cache
     fetchSources();
+    fetchPersonas();
 
     submitBtn.addEventListener('click', () => {
         if (submitBtn.innerText === 'Analyze Feedback') {
@@ -190,25 +248,26 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) throw new Error(data.error);
-            
-            currentFeedbackDir = data.feedbackDir;
-            proposedPrompt.innerText = data.prompt;
-            
-            loadingArea.style.display = 'none';
-            resultArea.style.display = 'flex';
-            
-            submitBtn.innerText = 'Send to Jules';
-            submitBtn.disabled = false;
-            cancelBtn.style.display = 'inline-block';
-        })
-        .catch(err => {
-            console.error("Analysis failed:", err);
-            alert("Analysis failed. See console.");
-            closeModal();
-        });
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+
+                currentFeedbackDir = data.feedbackDir;
+                basePrompt = data.prompt;
+                updatePromptPreview();
+
+                loadingArea.style.display = 'none';
+                resultArea.style.display = 'flex';
+
+                submitBtn.innerText = 'Send to Jules';
+                submitBtn.disabled = false;
+                cancelBtn.style.display = 'inline-block';
+            })
+            .catch(err => {
+                console.error("Analysis failed:", err);
+                alert("Analysis failed. See console.");
+                closeModal();
+            });
     }
 
     function sendToJules() {
@@ -218,10 +277,12 @@
         const baseUrl = config.endpoint.split('/api/feedback')[0];
         const julesUrl = `${baseUrl}/api/send-to-jules`;
 
-        const payload = { 
+        const payload = {
             feedbackDir: currentFeedbackDir,
             sourceId: repoSelect.value,
-            branch: branchInput.value
+            branch: branchSelect.value,
+            persona: personaSelect.value,
+            prompt: proposedPrompt.value
         };
 
         fetch(julesUrl, {
@@ -229,35 +290,35 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            successContainer.innerHTML = '<div class="fw-success-msg">Success! Jules has started the task.</div>';
-            submitBtn.style.display = 'none';
-            cancelBtn.innerText = 'Close';
-        })
-        .catch(err => {
-            console.error("Jules trigger failed:", err);
-            alert("Failed to trigger Jules.");
-            submitBtn.innerText = 'Send to Jules';
-            submitBtn.disabled = false;
-        });
+            .then(res => res.json())
+            .then(data => {
+                successContainer.innerHTML = '<div class="fw-success-msg">Success! Jules has started the task.</div>';
+                submitBtn.style.display = 'none';
+                cancelBtn.innerText = 'Close';
+            })
+            .catch(err => {
+                console.error("Jules trigger failed:", err);
+                alert("Failed to trigger Jules.");
+                submitBtn.innerText = 'Send to Jules';
+                submitBtn.disabled = false;
+            });
     }
 
     function fetchSources(refresh = false) {
         refreshReposBtn.classList.add('fw-refresh-spinning');
         const baseUrl = config.endpoint.split('/api/feedback')[0];
-        
+
         fetch(`${baseUrl}/api/jules/sources${refresh ? '?refresh=true' : ''}`)
             .then(res => res.json())
             .then(data => {
-                const sources = data.sources || [];
-                repoSelect.innerHTML = sources.map(s => {
+                availableSources = data.sources || [];
+                repoSelect.innerHTML = availableSources.map(s => {
                     const id = s.name.replace('sources/', '');
                     const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
                     return `<option value="${id}">${label}</option>`;
                 }).join('');
-                
-                // Set default if JULES_DEFAULT_REPO is known (client-side might not know it, but server handles fallback)
+
+                updateBranchOptions();
             })
             .catch(err => {
                 console.error("Failed to fetch sources:", err);
@@ -268,17 +329,83 @@
             });
     }
 
+    function fetchPersonas() {
+        const baseUrl = config.endpoint.split('/api/feedback')[0];
+
+        fetch(`${baseUrl}/api/jules/personas`)
+            .then(res => res.json())
+            .then(data => {
+                const personas = data.personas || [];
+                personaSelect.innerHTML = personas.map(p => {
+                    return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+                }).join('');
+            })
+            .catch(err => {
+                console.error("Failed to fetch personas:", err);
+                personaSelect.innerHTML = '<option value="">Error loading personas</option>';
+            });
+    }
+
+    function updateBranchOptions() {
+        const selectedId = repoSelect.value;
+        const source = availableSources.find(s => s.name.replace('sources/', '') === selectedId);
+
+        if (!source || !source.githubRepo) {
+            branchSelect.innerHTML = '<option value="dev">dev (default)</option>';
+            return;
+        }
+
+        const branches = source.githubRepo.branches || [];
+        const defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : 'dev';
+
+        if (branches.length === 0) {
+            branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
+            return;
+        }
+
+        branchSelect.innerHTML = branches.map(b => {
+            const name = b.displayName;
+            return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
+        }).join('');
+    }
+
+    function updatePromptPreview() {
+        const persona = personaSelect.value;
+        if (persona) {
+            proposedPrompt.value = `You are the ${persona}. Read AGENTS.md first. ${basePrompt}`;
+        } else {
+            proposedPrompt.value = basePrompt;
+        }
+    }
+
+    function minimizeModal() {
+        modalContainer.style.visibility = 'hidden';
+        modalContainer.style.pointerEvents = 'none';
+        minimizedBadge.style.display = 'flex';
+    }
+
+    function maximizeModal() {
+        modalContainer.style.visibility = 'visible';
+        modalContainer.style.pointerEvents = 'auto';
+        minimizedBadge.style.display = 'none';
+    }
+
     function closeModal() {
         modalContainer.style.display = 'none';
+        minimizedBadge.style.display = 'none';
         textArea.value = '';
         previewImg.src = '';
         currentFeedbackDir = null;
-        
+
+        // Reset modal visibility
+        modalContainer.style.visibility = '';
+        modalContainer.style.pointerEvents = '';
+
         // Reset areas
         inputArea.style.display = 'block';
         loadingArea.style.display = 'none';
         resultArea.style.display = 'none';
-        
+
         submitBtn.innerText = 'Analyze Feedback';
         submitBtn.disabled = false;
         submitBtn.style.display = 'inline-block';
@@ -288,9 +415,12 @@
     }
 
     function processSelection(rect) {
+        // New feedback capture always clears any old minimized state
+        maximizeModal();
+
         // Hide overlay temporarily to capture what's underneath
         overlay.style.display = 'none';
-        
+
         if (typeof html2canvas === 'undefined') {
             alert('html2canvas is still loading or failed to load.');
             resetOverlay();
@@ -321,7 +451,7 @@
             // html2canvas leaves a transform on the context (e.g. for devicePixelRatio).
             // We must reset it to the identity matrix so our physical pixel calculations map correctly.
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            
+
             const scale = canvas.width / window.innerWidth;
 
             const rx = rect.x * scale;
@@ -345,11 +475,11 @@
 
             const dataUrl = canvas.toDataURL('image/png');
             previewImg.src = dataUrl;
-            
+
             // Show modal
             modalContainer.style.display = 'flex';
             textArea.focus();
-            
+
             resetOverlay();
         }).catch(err => {
             console.error("Screenshot capture failed:", err);

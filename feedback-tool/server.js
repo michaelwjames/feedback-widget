@@ -8,7 +8,7 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 12345;
 const FEEDBACK_DIR = path.join(__dirname, 'feedbacks');
 const JULES_CACHE_FILE = path.join(__dirname, 'jules_sources.json');
 
@@ -26,10 +26,25 @@ app.use(express.static(__dirname));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
+// GET endpoint to fetch agent personas
+app.get('/api/jules/personas', async (req, res) => {
+    const PERSONAS_FILE = path.join(__dirname, 'agent_personas.json');
+    if (fs.existsSync(PERSONAS_FILE)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(PERSONAS_FILE, 'utf8'));
+            return res.json({ personas: data });
+        } catch (err) {
+            console.error("Failed to read personas file:", err);
+            return res.status(500).json({ error: 'Failed to read personas.' });
+        }
+    }
+    res.json({ personas: ["orchestrator", "auditor", "director"] }); // Fallback
+});
+
 // GET endpoint to fetch jules sources (with caching)
 app.get('/api/jules/sources', async (req, res) => {
     const forceRefresh = req.query.refresh === 'true';
-    
+
     if (!forceRefresh && fs.existsSync(JULES_CACHE_FILE)) {
         try {
             const cacheData = JSON.parse(fs.readFileSync(JULES_CACHE_FILE, 'utf8'));
@@ -42,11 +57,11 @@ app.get('/api/jules/sources', async (req, res) => {
     try {
         const julesScript = path.join(__dirname, '..', 'agents', 'jules-subagent', 'jules_client.py');
         const julesCmd = `python3 "${julesScript}" list-sources --page-size 50`;
-        
+
         console.log(`[AGENT WORKFLOW] Fetching fresh Jules sources...`);
         const { stdout } = await execPromise(julesCmd);
         const data = JSON.parse(stdout);
-        
+
         fs.writeFileSync(JULES_CACHE_FILE, JSON.stringify(data, null, 2), 'utf8');
         res.json(data);
     } catch (error) {
@@ -66,7 +81,7 @@ app.post('/api/feedback', async (req, res) => {
 
         const timestamp = Date.now();
         const currentFeedbackDir = path.join(FEEDBACK_DIR, timestamp.toString());
-        
+
         // Create directory for this specific feedback instance
         fs.mkdirSync(currentFeedbackDir);
 
@@ -79,7 +94,7 @@ app.post('/api/feedback', async (req, res) => {
             // Remove the data URL prefix to get raw base64 data
             const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
             imagePath = path.join(currentFeedbackDir, 'screenshot.png');
-            
+
             fs.writeFileSync(imagePath, base64Data, 'base64');
             markdownContent += `## Screenshot\n\n![Screenshot](./screenshot.png)\n`;
         }
@@ -89,14 +104,14 @@ app.post('/api/feedback', async (req, res) => {
         fs.writeFileSync(mdPath, markdownContent, 'utf8');
 
         console.log(`Saved feedback files to ${currentFeedbackDir}. Starting Groq analysis...`);
-        
+
         // Run Groq Analysis and WAIT for it
         const promptData = await runGroqAnalysis(currentFeedbackDir, imagePath, mdPath);
 
-        res.status(200).json({ 
-            message: 'Feedback saved and analyzed.', 
+        res.status(200).json({
+            message: 'Feedback saved and analyzed.',
             prompt: promptData.prompt_for_jules,
-            feedbackDir: currentFeedbackDir 
+            feedbackDir: currentFeedbackDir
         });
     } catch (error) {
         console.error('Error during feedback analysis:', error);
@@ -105,9 +120,9 @@ app.post('/api/feedback', async (req, res) => {
 });
 
 // Step 2: POST endpoint to trigger JULES
-app.post('/api/send-to-jules', (req, res) => {
-    const { feedbackDir, sourceId, branch } = req.body;
-    
+app.post('/api/send-to-jules', async (req, res) => {
+    const { feedbackDir, sourceId, branch, persona, prompt: customPrompt } = req.body;
+
     if (!feedbackDir) {
         return res.status(400).json({ error: 'Feedback directory path is required.' });
     }
@@ -115,6 +130,30 @@ app.post('/api/send-to-jules', (req, res) => {
     try {
         const julesScript = path.join(__dirname, '..', 'agents', 'jules-subagent', 'jules_client.py');
         const promptFilePath = path.join(feedbackDir, 'jules_prompt.json');
+
+        // If custom prompt is provided, use it verbatim
+        if (customPrompt) {
+            try {
+                const promptData = { prompt_for_jules: customPrompt };
+                fs.writeFileSync(promptFilePath, JSON.stringify(promptData, null, 2), 'utf8');
+                console.log(`[AGENT WORKFLOW] Used custom prompt provided by user.`);
+            } catch (err) {
+                console.error("Failed to save custom prompt:", err);
+            }
+        }
+        // Otherwise use the persona prefixing logic
+        else if (persona) {
+            try {
+                const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+                if (promptData.prompt_for_jules) {
+                    promptData.prompt_for_jules = `You are the ${persona}. ${promptData.prompt_for_jules}`;
+                    fs.writeFileSync(promptFilePath, JSON.stringify(promptData, null, 2), 'utf8');
+                    console.log(`[AGENT WORKFLOW] Prepended persona '${persona}' to Jules prompt.`);
+                }
+            } catch (err) {
+                console.error("Failed to update prompt with persona:", err);
+            }
+        }
 
         console.log(`[AGENT WORKFLOW] Triggering Jules for ${feedbackDir} on ${sourceId || 'default repo'} branch ${branch || 'default branch'}`);
 
@@ -126,7 +165,7 @@ app.post('/api/send-to-jules', (req, res) => {
         if (branch) {
             julesCmd += ` --branch "${branch}"`;
         }
-        
+
         exec(julesCmd, (jError, jStdout, jStderr) => {
             if (jError) {
                 console.error(`[AGENT WORKFLOW] Jules Error: ${jError.message}`);
@@ -150,11 +189,11 @@ async function runGroqAnalysis(feedbackDir, imagePath, mdPath) {
 
     // Step 1: Groq Vision OCR Analysis
     const groqCmd = `python3 "${groqScript}" --images "${imagePath}" --md-file "${mdPath}" --output "${promptFilePath}"`;
-    
+
     try {
         const { stdout } = await execPromise(groqCmd);
         console.log(`[AGENT WORKFLOW] Groq OCR Completed: ${stdout.trim()}`);
-        
+
         // Read the resulting JSON file
         const resultJson = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
         return resultJson;
