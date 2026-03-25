@@ -1,3 +1,5 @@
 feedbacks/
 node_modules/
 .env
+jules_sources.json
+defaults.json

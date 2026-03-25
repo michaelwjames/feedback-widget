@@ -1,0 +1,16 @@
+{
+  "repos": [
+    "github/user/your_repo",
+    "github/user/your_repo2",
+    "github/user/your_repo3"
+  ],
+  "branches": [
+    "dev",
+    "development",
+    "main"
+  ],
+  "personas": [
+    "orchestrator",
+    "director"
+  ]
+}

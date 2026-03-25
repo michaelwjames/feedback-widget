@@ -28,6 +28,7 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // GET endpoint to fetch defaults
 app.get('/api/jules/defaults', async (req, res) => {
+    ensureDefaults();
     const DEFAULTS_FILE = path.join(__dirname, 'defaults.json');
     if (fs.existsSync(DEFAULTS_FILE)) {
         try {
@@ -77,12 +78,26 @@ app.get('/api/jules/sources', async (req, res) => {
         const data = JSON.parse(stdout);
 
         fs.writeFileSync(JULES_CACHE_FILE, JSON.stringify(data, null, 2), 'utf8');
+        ensureDefaults();
         res.json(data);
     } catch (error) {
         console.error('Error fetching Jules sources:', error);
         res.status(500).json({ error: 'Failed to fetch Jules sources.' });
     }
 });
+
+function ensureDefaults() {
+    const DEFAULTS_FILE = path.join(__dirname, 'defaults.json');
+    const DEFAULTS_EXAMPLE = path.join(__dirname, 'defaults.json.example');
+    if (!fs.existsSync(DEFAULTS_FILE) && fs.existsSync(DEFAULTS_EXAMPLE)) {
+        try {
+            fs.copyFileSync(DEFAULTS_EXAMPLE, DEFAULTS_FILE);
+            console.log(`[AGENT WORKFLOW] Generated defaults.json from example.`);
+        } catch (err) {
+            console.error("Failed to generate defaults.json:", err);
+        }
+    }
+}
 
 // Step 1: POST endpoint to save feedback and RUN GROQ
 app.post('/api/feedback', async (req, res) => {
