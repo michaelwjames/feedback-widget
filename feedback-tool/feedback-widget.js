@@ -317,24 +317,33 @@
         }).then(canvas => {
             document.body.removeChild(capturingToast);
 
-            // Create a temporary canvas to crop the image
-            const croppedCanvas = document.createElement('canvas');
-            const ctx = croppedCanvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
+            // html2canvas leaves a transform on the context (e.g. for devicePixelRatio).
+            // We must reset it to the identity matrix so our physical pixel calculations map correctly.
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             
-            // Handle high-DPI displays (retina) where canvas size > window size
             const scale = canvas.width / window.innerWidth;
 
-            croppedCanvas.width = rect.width * scale;
-            croppedCanvas.height = rect.height * scale;
+            const rx = rect.x * scale;
+            const ry = rect.y * scale;
+            const rw = rect.width * scale;
+            const rh = rect.height * scale;
+            const cw = canvas.width;
+            const ch = canvas.height;
 
-            ctx.drawImage(
-                canvas,
-                rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, // Source coordinates
-                0, 0, rect.width * scale, rect.height * scale // Destination coordinates
-            );
+            // Draw dark overlay on unselected areas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, 0, cw, ry); // Top
+            ctx.fillRect(0, ry + rh, cw, ch - (ry + rh)); // Bottom
+            ctx.fillRect(0, ry, rx, rh); // Left
+            ctx.fillRect(rx + rw, ry, cw - (rx + rw), rh); // Right
 
-            // Get cropped image data
-            const dataUrl = croppedCanvas.toDataURL('image/png');
+            // Draw red border around selected area
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = Math.max(2, 4 * scale);
+            ctx.strokeRect(rx, ry, rw, rh);
+
+            const dataUrl = canvas.toDataURL('image/png');
             previewImg.src = dataUrl;
             
             // Show modal
