@@ -1,5 +1,8 @@
 "use strict";
 (() => {
+  var __defProp = Object.defineProperty;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   var __async = (__this, __arguments, generator) => {
     return new Promise((resolve, reject) => {
       var fulfilled = (value) => {
@@ -24,6 +27,8 @@
   // src/api.ts
   var APIClient = class {
     constructor(config) {
+      __publicField(this, "config");
+      __publicField(this, "baseUrl");
       this.config = config;
       this.baseUrl = config.endpoint.split("/api/feedback")[0];
     }
@@ -74,6 +79,8 @@
   // src/ui/Trigger.ts
   var Trigger = class {
     constructor(onClickTrigger, onClickBadge) {
+      __publicField(this, "triggerBtn");
+      __publicField(this, "minimizedBadge");
       this.triggerBtn = document.createElement("button");
       this.triggerBtn.id = "fw-trigger-btn";
       this.triggerBtn.innerText = "Feedback";
@@ -98,9 +105,17 @@
   var Toolbar = class {
     constructor(callbacks) {
       this.callbacks = callbacks;
-      this.isDragging = false;
-      this.xOffset = 0;
-      this.yOffset = 0;
+      __publicField(this, "container");
+      __publicField(this, "selectBtn");
+      __publicField(this, "commentBtn");
+      __publicField(this, "cancelBtn");
+      __publicField(this, "isDragging", false);
+      __publicField(this, "currentX", 0);
+      __publicField(this, "currentY", 0);
+      __publicField(this, "initialX", 0);
+      __publicField(this, "initialY", 0);
+      __publicField(this, "xOffset", 0);
+      __publicField(this, "yOffset", 0);
       this.container = document.createElement("div");
       this.container.id = "fw-toolbar";
       this.container.style.cssText = `
@@ -242,10 +257,13 @@
   // src/ui/Overlay.ts
   var Overlay = class {
     constructor(onComplete) {
-      this.isDrawing = false;
-      this.startX = 0;
-      this.startY = 0;
-      this.rectParams = null;
+      __publicField(this, "overlay");
+      __publicField(this, "selectionRect");
+      __publicField(this, "isDrawing", false);
+      __publicField(this, "startX", 0);
+      __publicField(this, "startY", 0);
+      __publicField(this, "rectParams", null);
+      __publicField(this, "onComplete");
       this.onComplete = onComplete;
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
@@ -310,10 +328,11 @@
   // src/ui/CommentOverlay.ts
   var CommentOverlay = class {
     constructor() {
-      this.comments = [];
-      this.currentCommentCount = 0;
-      this.activeInput = null;
-      this.isActive = false;
+      __publicField(this, "overlay");
+      __publicField(this, "comments", []);
+      __publicField(this, "currentCommentCount", 0);
+      __publicField(this, "activeInput", null);
+      __publicField(this, "isActive", false);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-comment-overlay";
       this.overlay.style.cssText = `
@@ -477,10 +496,27 @@
   var Modal = class {
     constructor(callbacks) {
       this.callbacks = callbacks;
-      this.isEditingPrompt = false;
-      this.basePrompt = "";
-      this.availableSources = [];
-      this.configDefaults = { repos: [], branches: [], personas: [] };
+      __publicField(this, "container");
+      __publicField(this, "previewImg");
+      __publicField(this, "textArea");
+      __publicField(this, "closeBtn");
+      __publicField(this, "minimizeBtn");
+      __publicField(this, "cancelBtn");
+      __publicField(this, "submitBtn");
+      __publicField(this, "inputArea");
+      __publicField(this, "loadingArea");
+      __publicField(this, "resultArea");
+      __publicField(this, "proposedPrompt");
+      __publicField(this, "editPromptBtn");
+      __publicField(this, "successContainer");
+      __publicField(this, "repoSelect");
+      __publicField(this, "branchSelect");
+      __publicField(this, "personaSelect");
+      __publicField(this, "refreshReposBtn");
+      __publicField(this, "isEditingPrompt", false);
+      __publicField(this, "basePrompt", "");
+      __publicField(this, "availableSources", []);
+      __publicField(this, "configDefaults", { repos: [], branches: [], personas: [] });
       this.container = document.createElement("div");
       this.container.id = "fw-modal-container";
       this.container.innerHTML = `

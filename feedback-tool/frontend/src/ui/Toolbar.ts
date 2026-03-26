@@ -12,10 +12,10 @@ export class Toolbar {
   private cancelBtn: HTMLButtonElement;
 
   private isDragging = false;
-  private currentX: number;
-  private currentY: number;
-  private initialX: number;
-  private initialY: number;
+  private currentX = 0;
+  private currentY = 0;
+  private initialX = 0;
+  private initialY = 0;
   private xOffset = 0;
   private yOffset = 0;
 
