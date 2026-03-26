@@ -19,6 +19,7 @@ export interface FeedbackMetadata {
   windowSize: string;
   timestamp: string;
   comments?: FeedbackComment[];
+  consoleLogs?: string[];
 }
 
 export interface FeedbackPayload {

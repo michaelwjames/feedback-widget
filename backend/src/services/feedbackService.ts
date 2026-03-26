@@ -53,6 +53,15 @@ export class FeedbackService {
                 });
                 markdownContent += `\n`;
             }
+
+            if (metadata.consoleLogs && metadata.consoleLogs.length > 0) {
+                markdownContent += `## Browser Console Logs\n\n`;
+                markdownContent += "```\n";
+                metadata.consoleLogs.forEach((log: string) => {
+                    markdownContent += `${log}\n`;
+                });
+                markdownContent += "```\n\n";
+            }
         }
 
         let imagePaths: string[] = [];

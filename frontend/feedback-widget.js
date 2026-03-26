@@ -1195,8 +1195,75 @@ ${prompt.INSTRUCTIONS || ""}`;
   __publicField(_ScreenshotUtil, "loadPromise", null);
   var ScreenshotUtil = _ScreenshotUtil;
 
+  // src/utils/consoleCapture.ts
+  var _ConsoleCapture = class _ConsoleCapture {
+    constructor() {
+      __publicField(this, "logs", []);
+      __publicField(this, "maxLogs", 100);
+      __publicField(this, "lastLog", null);
+      __publicField(this, "repeatCount", 0);
+      __publicField(this, "originalLog", console.log);
+      __publicField(this, "originalWarn", console.warn);
+      __publicField(this, "originalError", console.error);
+      __publicField(this, "originalInfo", console.info);
+      this.interceptConsole();
+    }
+    static getInstance() {
+      if (!_ConsoleCapture.instance) {
+        _ConsoleCapture.instance = new _ConsoleCapture();
+      }
+      return _ConsoleCapture.instance;
+    }
+    interceptConsole() {
+      console.log = this.createInterceptor("LOG", this.originalLog);
+      console.warn = this.createInterceptor("WARN", this.originalWarn);
+      console.error = this.createInterceptor("ERROR", this.originalError);
+      console.info = this.createInterceptor("INFO", this.originalInfo);
+    }
+    createInterceptor(type, originalMethod) {
+      return (...args) => {
+        originalMethod.apply(console, args);
+        const message = args.map((arg) => {
+          if (typeof arg === "object") {
+            try {
+              return JSON.stringify(arg);
+            } catch (e) {
+              return "[Object]";
+            }
+          }
+          return String(arg);
+        }).join(" ");
+        const formattedMessage = `[${type}] ${message}`;
+        if (formattedMessage === this.lastLog) {
+          this.repeatCount++;
+          if (this.logs.length > 0) {
+            this.logs[this.logs.length - 1] = `${formattedMessage} (Repeated ${this.repeatCount + 1} times)`;
+          }
+        } else {
+          this.lastLog = formattedMessage;
+          this.repeatCount = 0;
+          this.logs.push(formattedMessage);
+          if (this.logs.length > this.maxLogs) {
+            this.logs.shift();
+          }
+        }
+      };
+    }
+    getLogs() {
+      return [...this.logs];
+    }
+    clearLogs() {
+      this.logs = [];
+      this.lastLog = null;
+      this.repeatCount = 0;
+    }
+  };
+  __publicField(_ConsoleCapture, "instance");
+  var ConsoleCapture = _ConsoleCapture;
+
   // src/index.ts
   (function() {
+    const consoleCapture = ConsoleCapture.getInstance();
     const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: "http://localhost:12345/api/feedback" };
     const api = new APIClient(config);
     const screenshotUtil = new ScreenshotUtil();
@@ -1290,7 +1357,8 @@ ${prompt.INSTRUCTIONS || ""}`;
           screenResolution: `${window.screen.width}x${window.screen.height}`,
           windowSize: `${window.innerWidth}x${window.innerHeight}`,
           timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-          comments: commentOverlay.getComments()
+          comments: commentOverlay.getComments(),
+          consoleLogs: consoleCapture.getLogs()
         };
         const payload = {
           text,

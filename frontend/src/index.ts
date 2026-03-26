@@ -5,9 +5,13 @@ import { Overlay, RectParams } from './ui/Overlay';
 import { CommentOverlay } from './ui/CommentOverlay';
 import { Modal } from './ui/Modal';
 import { ScreenshotUtil } from './utils/screenshot';
+import { ConsoleCapture } from './utils/consoleCapture';
 import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
 
 (function () {
+  // Initialize console capture immediately
+  const consoleCapture = ConsoleCapture.getInstance();
+
   // Read config
   const config: Config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: 'http://localhost:12345/api/feedback' };
 
@@ -118,7 +122,8 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         screenResolution: `${window.screen.width}x${window.screen.height}`,
         windowSize: `${window.innerWidth}x${window.innerHeight}`,
         timestamp: new Date().toISOString(),
-        comments: commentOverlay.getComments()
+        comments: commentOverlay.getComments(),
+        consoleLogs: consoleCapture.getLogs()
       };
 
       const payload: FeedbackPayload = {
