@@ -20,6 +20,7 @@ export interface FeedbackMetadata {
   timestamp: string;
   comments?: FeedbackComment[];
   consoleLogs?: string[];
+  domSnapshot?: string;
 }
 
 export interface FeedbackPayload {

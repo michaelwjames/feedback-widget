@@ -1261,13 +1261,75 @@ ${prompt.INSTRUCTIONS || ""}`;
   __publicField(_ConsoleCapture, "instance");
   var ConsoleCapture = _ConsoleCapture;
 
+  // src/utils/domCapture.ts
+  var DOMCapture = class {
+    /**
+     * Captures HTML for elements selected via rectangle or comment marker.
+     * Prioritizes rectangles, then comments. Returns empty string if full page is selected.
+     */
+    capture(rects, comments, fullPage) {
+      if (fullPage) {
+        return "";
+      }
+      const targetedElements = /* @__PURE__ */ new Set();
+      comments.forEach((comment) => {
+        const el = document.elementFromPoint(comment.x, comment.y);
+        if (el) {
+          const target = el.parentElement && el.parentElement !== document.body && el.parentElement !== document.documentElement ? el.parentElement : el;
+          targetedElements.add(target);
+        }
+      });
+      if (rects.length > 0) {
+        const allElements = document.querySelectorAll("*");
+        rects.forEach((rect) => {
+          const intersecting = [];
+          allElements.forEach((el) => {
+            if (el.id.startsWith("fw-") || el.classList.contains("fw-selection-rect") || el.tagName.toLowerCase() === "svg") {
+              return;
+            }
+            const bounds = el.getBoundingClientRect();
+            const intersects = !(bounds.right < rect.x || bounds.left > rect.x + rect.width || bounds.bottom < rect.y || bounds.top > rect.y + rect.height);
+            if (intersects && bounds.width > 0 && bounds.height > 0) {
+              intersecting.push(el);
+            }
+          });
+          if (intersecting.length > 0) {
+            intersecting.sort((a, b) => {
+              const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+              const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+              return areaB - areaA;
+            });
+            for (const el of intersecting) {
+              if (el !== document.body && el !== document.documentElement) {
+                targetedElements.add(el);
+                break;
+              }
+            }
+          }
+        });
+      }
+      let snapshot = "";
+      targetedElements.forEach((el) => {
+        let html = el.outerHTML;
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+        html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+        snapshot += html + "\n\n";
+      });
+      snapshot = snapshot.replace(new RegExp('<div[^>]*id="fw-[^>]*>.*?<\\/div>', "gis"), "");
+      snapshot = snapshot.replace(new RegExp('<div[^>]*class="fw-[^>]*>.*?<\\/div>', "gis"), "");
+      return snapshot.trim();
+    }
+  };
+
   // src/index.ts
   (function() {
     const consoleCapture = ConsoleCapture.getInstance();
     const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: "http://localhost:12345/api/feedback" };
     const api = new APIClient(config);
     const screenshotUtil = new ScreenshotUtil();
+    const domCapture = new DOMCapture();
     let currentFeedbackDir = null;
+    let currentDomSnapshot = "";
     const toolbar = new Toolbar({
       onModeChanged: (mode) => {
         if (mode === "select") {
@@ -1358,7 +1420,8 @@ ${prompt.INSTRUCTIONS || ""}`;
           windowSize: `${window.innerWidth}x${window.innerHeight}`,
           timestamp: (/* @__PURE__ */ new Date()).toISOString(),
           comments: commentOverlay.getComments(),
-          consoleLogs: consoleCapture.getLogs()
+          consoleLogs: consoleCapture.getLogs(),
+          domSnapshot: currentDomSnapshot
         };
         const payload = {
           text,
@@ -1423,6 +1486,7 @@ ${prompt.INSTRUCTIONS || ""}`;
     const overlay = new Overlay();
     function processSelection(rects, fullPage) {
       return __async(this, null, function* () {
+        currentDomSnapshot = domCapture.capture(rects, commentOverlay.getComments(), fullPage);
         toolbar.hide();
         overlay.hide();
         commentOverlay.hide();

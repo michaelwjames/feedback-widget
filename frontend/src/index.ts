@@ -6,6 +6,7 @@ import { CommentOverlay } from './ui/CommentOverlay';
 import { Modal } from './ui/Modal';
 import { ScreenshotUtil } from './utils/screenshot';
 import { ConsoleCapture } from './utils/consoleCapture';
+import { DOMCapture } from './utils/domCapture';
 import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
 
 (function () {
@@ -17,8 +18,10 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
 
   const api = new APIClient(config);
   const screenshotUtil = new ScreenshotUtil();
+  const domCapture = new DOMCapture();
 
   let currentFeedbackDir: string | null = null;
+  let currentDomSnapshot: string = "";
 
   const toolbar = new Toolbar({
     onModeChanged: (mode: ToolbarMode) => {
@@ -123,7 +126,8 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         windowSize: `${window.innerWidth}x${window.innerHeight}`,
         timestamp: new Date().toISOString(),
         comments: commentOverlay.getComments(),
-        consoleLogs: consoleCapture.getLogs()
+        consoleLogs: consoleCapture.getLogs(),
+        domSnapshot: currentDomSnapshot
       };
 
       const payload: FeedbackPayload = {
@@ -203,6 +207,9 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
   const overlay = new Overlay();
 
   async function processSelection(rects: RectParams[], fullPage: boolean) {
+    // Capture DOM first while elements are visible and properly structured
+    currentDomSnapshot = domCapture.capture(rects, commentOverlay.getComments(), fullPage);
+
     // Hide UI elements before taking screenshot
     toolbar.hide();
     overlay.hide();

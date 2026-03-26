@@ -62,6 +62,13 @@ export class FeedbackService {
                 });
                 markdownContent += "```\n\n";
             }
+
+            if (metadata.domSnapshot) {
+                markdownContent += `## DOM Snapshot\n\n`;
+                markdownContent += "```html\n";
+                markdownContent += `${metadata.domSnapshot}\n`;
+                markdownContent += "```\n\n";
+            }
         }
 
         let imagePaths: string[] = [];
