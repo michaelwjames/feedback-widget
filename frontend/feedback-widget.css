@@ -27,8 +27,8 @@
 /* --- Minimized Badge --- */
 #fw-minimized-badge {
     position: fixed;
-    top: calc(50% - 70px);
-    right: 10px;
+    top: calc(50% - 20px);
+    right: 0px;
     background-color: #2b6cb0;
     color: white;
     width: 36px;
@@ -74,13 +74,15 @@
     background-color: rgba(255, 255, 255, 0.1);
     display: none;
     pointer-events: none;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); /* Highlight selected area while dimming rest */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    /* Highlight selected area while dimming rest */
 }
 
 /* Override dimming on overlay when rectangle is active to use box-shadow approach */
 #fw-overlay.fw-drawing {
     background-color: transparent;
 }
+
 #fw-overlay.fw-drawing #fw-selection-rect {
     display: block;
 }
@@ -92,7 +94,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0,0,0,0.6);
+    background-color: rgba(0, 0, 0, 0.6);
     z-index: 1000001;
     display: none;
     justify-content: center;
@@ -192,7 +194,9 @@
 }
 
 /* --- Loader, Agent Results, and Login --- */
-#fw-loading-area, #fw-result-area, #fw-login-area {
+#fw-loading-area,
+#fw-result-area,
+#fw-login-area {
     display: none;
     flex-direction: column;
     padding: 20px 0;
@@ -259,8 +263,13 @@
 }
 
 @keyframes fw-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 #fw-loading-text {
@@ -325,10 +334,12 @@
     width: 100%;
 }
 
-.fw-select, .fw-input {
+.fw-select,
+.fw-input {
     flex: 1;
     min-width: 0;
-    width: 100%; /* Important to force flex container constraints */
+    width: 100%;
+    /* Important to force flex container constraints */
     padding: 8px;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
@@ -365,8 +376,13 @@
 }
 
 @keyframes fw-spin-refresh {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .fw-refresh-spinning svg {

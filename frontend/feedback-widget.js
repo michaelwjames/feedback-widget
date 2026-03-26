@@ -155,8 +155,9 @@
       this.container.id = "fw-toolbar";
       this.container.style.cssText = `
       position: fixed;
-      bottom: 80px;
-      right: 20px;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       background: white;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
@@ -279,7 +280,7 @@
       this.setTranslate(this.currentX, this.currentY, this.container);
     }
     setTranslate(xPos, yPos, el) {
-      el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+      el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
     }
     dragEnd() {
       this.initialX = this.currentX;
