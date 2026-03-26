@@ -1,6 +1,6 @@
 # Feedback Widget & AI Agent Dashboard Makefile
 
-.PHONY: install run test clean help setup
+.PHONY: install run test clean help setup build
 
 # Default target
 all: install
@@ -8,31 +8,36 @@ all: install
 help:
 	@echo "Usage:"
 	@echo "  make install     Install all dependencies (Node.js & Python)"
+	@echo "  make build       Build frontend and backend"
 	@echo "  make run         Start the feedback backend server"
 	@echo "  make test        Run backend and integration tests"
 	@echo "  make clean       Remove temporary files, logs, and stored feedback"
 	@echo "  make setup       Create necessary .env files (templates)"
 
 install:
-	@echo "Installing Node.js dependencies in feedback-tool..."
-	cd feedback-tool && npm install
-	@echo "Installing Python dependencies for agents..."
-	pip3 install -r agents/groq-vision-ocr/requirements.txt
-	pip3 install -r agents/jules-subagent/requirements.txt
+	@echo "Installing Node.js dependencies in frontend & backend..."
+	cd feedback-tool/frontend && pnpm install
+	cd feedback-tool/backend && pnpm install
+	
+build:
+	@echo "Building frontend & backend..."
+	cd feedback-tool/frontend && pnpm run build
+	cd feedback-tool/backend && pnpm run build
 
 run:
 	@echo "Starting the Feedback Server at http://localhost:12345..."
-	cd feedback-tool && npm start
+	cd feedback-tool/backend && pnpm start
 
 test:
 	@echo "Running tests..."
-	cd feedback-tool && npm test
+	cd feedback-tool/backend && pnpm test
 
 clean:
 	@echo "Cleaning up..."
-	rm -rf feedback-tool/node_modules
+	rm -rf feedback-tool/frontend/node_modules
+	rm -rf feedback-tool/backend/node_modules
 	rm -rf feedback-tool/feedbacks/*
-	rm -f feedback-tool/jules_sources.json
+	rm -f feedback-tool/backend/jules_sources.json
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete
 	@echo "Clean complete."

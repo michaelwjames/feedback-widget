@@ -15,5 +15,5 @@ export const config = {
     defaultsFile: process.env.DEFAULTS_FILE || path.join(__dirname, '..', '..', 'defaults.json'),
     defaultsExampleFile: process.env.DEFAULTS_EXAMPLE_FILE || path.join(__dirname, '..', '..', 'defaults.json.example'),
     personasFile: process.env.PERSONAS_FILE || path.join(__dirname, '..', '..', 'agent_personas.json'),
-    staticDir: path.join(__dirname, '..', '..', '..', 'frontend'), // Updated to point to frontend folder
+    staticDir: path.join(__dirname, '..', '..', '..'), // Serves everything under feedback-tool/
 };
