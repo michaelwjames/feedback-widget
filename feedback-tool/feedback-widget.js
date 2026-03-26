@@ -346,17 +346,17 @@
                 const others = [];
 
                 // Keep defaults in exact order from configDefaults.repos
-                configDefaults.repos.forEach(repoId => {
+                for (const repoId of (configDefaults.repos || [])) {
                     const found = sources.find(s => s.name.replace('sources/', '') === repoId);
                     if (found) defaults.push(found);
-                });
+                }
 
-                sources.forEach(s => {
+                for (const s of sources) {
                     const id = s.name.replace('sources/', '');
-                    if (!configDefaults.repos.includes(id)) {
+                    if (!(configDefaults.repos || []).includes(id)) {
                         others.push(s);
                     }
-                });
+                }
 
                 // Sort others alphabetically by their label
                 others.sort((a, b) => {
@@ -409,16 +409,16 @@
                 const others = [];
 
                 // Keep defaults in exact order from configDefaults.personas
-                configDefaults.personas.forEach(personaName => {
+                for (const personaName of (configDefaults.personas || [])) {
                     const found = personas.find(p => p === personaName);
                     if (found) defaults.push(found);
-                });
+                }
 
-                personas.forEach(p => {
-                    if (!configDefaults.personas.includes(p)) {
+                for (const p of personas) {
+                    if (!(configDefaults.personas || []).includes(p)) {
                         others.push(p);
                     }
-                });
+                }
 
                 // Sort others alphabetically
                 others.sort((a, b) => a.localeCompare(b));
@@ -466,17 +466,17 @@
         const others = [];
 
         // Keep defaults in exact order from configDefaults.branches
-        configDefaults.branches.forEach(branchName => {
+        for (const branchName of (configDefaults.branches || [])) {
             const found = branches.find(b => b.displayName === branchName);
             if (found) defaults.push(found);
-        });
+        }
 
-        branches.forEach(b => {
+        for (const b of branches) {
             const name = b.displayName;
-            if (!configDefaults.branches.includes(name)) {
+            if (!(configDefaults.branches || []).includes(name)) {
                 others.push(b);
             }
-        });
+        }
 
         // Sort others alphabetically
         others.sort((a, b) => a.displayName.localeCompare(b.displayName));
