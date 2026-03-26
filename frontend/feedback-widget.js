@@ -144,6 +144,9 @@
       __publicField(this, "selectBtn");
       __publicField(this, "commentBtn");
       __publicField(this, "cancelBtn");
+      __publicField(this, "confirmBtn");
+      __publicField(this, "togglePageBtn");
+      __publicField(this, "fullPage", false);
       __publicField(this, "isDragging", false);
       __publicField(this, "currentX", 0);
       __publicField(this, "currentY", 0);
@@ -165,7 +168,7 @@
       display: none;
       align-items: center;
       padding: 5px;
-      z-index: 100000;
+      z-index: 1000020;
       gap: 5px;
       cursor: grab;
     `;
@@ -194,7 +197,7 @@
       this.selectBtn = document.createElement("button");
       this.selectBtn.title = "Select Area";
       this.selectBtn.style.cssText = btnStyle;
-      this.selectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      this.selectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-dasharray="3 3"></rect></svg>';
       this.commentBtn = document.createElement("button");
       this.commentBtn.title = "Add Comment";
       this.commentBtn.style.cssText = btnStyle;
@@ -205,14 +208,36 @@
       this.cancelBtn.title = "Cancel Feedback";
       this.cancelBtn.style.cssText = btnStyle + "color: #e53e3e;";
       this.cancelBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+      this.confirmBtn = document.createElement("button");
+      this.confirmBtn.title = "Confirm Screenshot";
+      this.confirmBtn.style.cssText = btnStyle + "color: #38a169;";
+      this.confirmBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      this.togglePageBtn = document.createElement("button");
+      const updateToggleIcon = () => {
+        if (this.fullPage) {
+          this.togglePageBtn.title = "Full Page (active) - Click to switch to Viewport";
+          this.togglePageBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>';
+          this.togglePageBtn.style.color = "#2b6cb0";
+        } else {
+          this.togglePageBtn.title = "Viewport (active) - Click to switch to Full Page";
+          this.togglePageBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+          this.togglePageBtn.style.color = "#2b6cb0";
+        }
+      };
+      this.togglePageBtn.style.cssText = btnStyle;
+      updateToggleIcon();
       this.container.appendChild(this.selectBtn);
       this.container.appendChild(this.commentBtn);
       this.container.appendChild(divider);
+      this.container.appendChild(this.togglePageBtn);
       this.container.appendChild(this.cancelBtn);
+      this.container.appendChild(this.confirmBtn);
       document.body.appendChild(this.container);
       this.attachHover(this.selectBtn);
       this.attachHover(this.commentBtn);
       this.attachHover(this.cancelBtn, "#fed7d7");
+      this.attachHover(this.confirmBtn, "#c6f6d5");
+      this.attachHover(this.togglePageBtn);
       this.selectBtn.addEventListener("click", () => {
         this.setActiveBtn(this.selectBtn);
         this.callbacks.onModeChanged("select");
@@ -224,6 +249,14 @@
       this.cancelBtn.addEventListener("click", () => {
         this.callbacks.onCancel();
         this.resetActiveBtn();
+      });
+      this.confirmBtn.addEventListener("click", () => {
+        this.callbacks.onConfirm(this.fullPage);
+        this.resetActiveBtn();
+      });
+      this.togglePageBtn.addEventListener("click", () => {
+        this.fullPage = !this.fullPage;
+        updateToggleIcon();
       });
       this.setupDragging();
     }
@@ -292,62 +325,112 @@
 
   // src/ui/Overlay.ts
   var Overlay = class {
-    constructor(onComplete) {
+    constructor() {
       __publicField(this, "overlay");
-      __publicField(this, "selectionRect");
       __publicField(this, "isDrawing", false);
       __publicField(this, "startX", 0);
       __publicField(this, "startY", 0);
-      __publicField(this, "rectParams", null);
-      __publicField(this, "onComplete");
-      this.onComplete = onComplete;
+      __publicField(this, "currentRectDiv", null);
+      __publicField(this, "currentRectParams", null);
+      __publicField(this, "rects", []);
+      __publicField(this, "dimmingSvg");
+      __publicField(this, "dimmingPath");
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
-      this.selectionRect = document.createElement("div");
-      this.selectionRect.id = "fw-selection-rect";
-      this.overlay.appendChild(this.selectionRect);
+      this.dimmingSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      this.dimmingSvg.id = "fw-overlay-dimming";
+      this.dimmingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      this.dimmingPath.setAttribute("fill", "rgba(0,0,0,0.4)");
+      this.dimmingPath.setAttribute("fill-rule", "evenodd");
+      this.dimmingSvg.appendChild(this.dimmingPath);
+      this.overlay.appendChild(this.dimmingSvg);
       this.attachEvents();
+    }
+    getSelections() {
+      return this.rects.map((r) => r.params);
+    }
+    updateDimming() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      let pathData = `M 0 0 H ${w} V ${h} H 0 Z`;
+      this.rects.forEach((r) => {
+        const { x, y, width, height } = r.params;
+        pathData += ` M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
+      });
+      if (this.isDrawing && this.currentRectParams) {
+        const { x, y, width, height } = this.currentRectParams;
+        pathData += ` M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
+      }
+      this.dimmingPath.setAttribute("d", pathData);
     }
     attachEvents() {
       this.overlay.addEventListener("mousedown", (e) => {
+        if (e.target.classList.contains("fw-selection-close")) return;
         this.isDrawing = true;
         this.startX = e.clientX;
         this.startY = e.clientY;
-        this.selectionRect.style.left = `${this.startX}px`;
-        this.selectionRect.style.top = `${this.startY}px`;
-        this.selectionRect.style.width = "0px";
-        this.selectionRect.style.height = "0px";
+        this.currentRectDiv = document.createElement("div");
+        this.currentRectDiv.className = "fw-selection-rect";
+        this.currentRectDiv.style.left = `${this.startX}px`;
+        this.currentRectDiv.style.top = `${this.startY}px`;
+        this.currentRectDiv.style.width = "0px";
+        this.currentRectDiv.style.height = "0px";
+        this.currentRectDiv.style.display = "block";
+        this.overlay.appendChild(this.currentRectDiv);
         this.overlay.classList.add("fw-drawing");
+        this.updateDimming();
       });
       this.overlay.addEventListener("mousemove", (e) => {
-        if (!this.isDrawing) return;
+        if (!this.isDrawing || !this.currentRectDiv) return;
         const currentX = e.clientX;
         const currentY = e.clientY;
         const width = Math.abs(currentX - this.startX);
         const height = Math.abs(currentY - this.startY);
         const left = Math.min(currentX, this.startX);
         const top = Math.min(currentY, this.startY);
-        this.selectionRect.style.left = `${left}px`;
-        this.selectionRect.style.top = `${top}px`;
-        this.selectionRect.style.width = `${width}px`;
-        this.selectionRect.style.height = `${height}px`;
-        this.rectParams = { x: left, y: top, width, height };
+        this.currentRectDiv.style.left = `${left}px`;
+        this.currentRectDiv.style.top = `${top}px`;
+        this.currentRectDiv.style.width = `${width}px`;
+        this.currentRectDiv.style.height = `${height}px`;
+        this.currentRectParams = { x: left, y: top, width, height };
+        this.updateDimming();
       });
       this.overlay.addEventListener("mouseup", () => {
         if (!this.isDrawing) return;
         this.isDrawing = false;
         document.body.style.userSelect = "";
-        if (this.rectParams && this.rectParams.width > 10 && this.rectParams.height > 10) {
-          this.onComplete(this.rectParams);
+        if (this.currentRectParams && this.currentRectParams.width > 20 && this.currentRectParams.height > 20) {
+          const div = this.currentRectDiv;
+          const params = this.currentRectParams;
+          const selectionObj = { div, params };
+          this.rects.push(selectionObj);
+          const closeBtn = document.createElement("div");
+          closeBtn.className = "fw-selection-close";
+          closeBtn.innerHTML = "&times;";
+          closeBtn.title = "Remove selection";
+          div.appendChild(closeBtn);
+          closeBtn.addEventListener("mousedown", (e) => {
+            e.stopPropagation();
+          });
+          closeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            div.remove();
+            this.rects = this.rects.filter((r) => r !== selectionObj);
+            this.updateDimming();
+          });
         } else {
-          this.reset();
+          if (this.currentRectDiv) this.currentRectDiv.remove();
         }
+        this.currentRectParams = null;
+        this.currentRectDiv = null;
+        this.updateDimming();
       });
     }
     show() {
       this.overlay.style.display = "block";
       document.body.style.userSelect = "none";
+      this.updateDimming();
     }
     hide() {
       this.overlay.style.display = "none";
@@ -355,9 +438,11 @@
     reset() {
       this.hide();
       this.overlay.classList.remove("fw-drawing");
-      this.selectionRect.style.width = "0px";
-      this.selectionRect.style.height = "0px";
-      this.rectParams = null;
+      Array.from(this.overlay.querySelectorAll(".fw-selection-rect")).forEach((el) => el.remove());
+      this.rects = [];
+      this.currentRectParams = null;
+      this.currentRectDiv = null;
+      this.updateDimming();
     }
   };
 
@@ -377,7 +462,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      z-index: 99998;
+      z-index: 1000010;
       display: none;
       cursor: crosshair;
     `;
@@ -432,10 +517,10 @@
       top: ${y}px;
       left: ${x}px;
       transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
+      width: 36px;
+      height: 36px;
       background: #fff;
-      border: 2px solid #e53e3e;
+      border: 3px solid #e53e3e;
       border-radius: 50%;
       color: #e53e3e;
       display: flex;
@@ -443,9 +528,9 @@
       justify-content: center;
       font-weight: bold;
       font-family: sans-serif;
-      font-size: 14px;
-      z-index: 99999;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      font-size: 18px;
+      z-index: 1000011;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
     `;
       document.body.appendChild(marker);
       this.activeInput = document.createElement("div");
@@ -453,7 +538,7 @@
       this.activeInput.style.cssText = `
       position: fixed;
       top: ${y}px;
-      left: ${x + 20}px;
+      left: ${x + 24}px;
       transform: translateY(-50%);
       background: white;
       border: 1px solid #cbd5e0;
@@ -461,7 +546,7 @@
       padding: 5px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       display: flex;
-      z-index: 99999;
+      z-index: 1000011;
     `;
       const input = document.createElement("input");
       input.type = "text";
@@ -727,6 +812,9 @@
     setPreviewImage(dataUrl) {
       this.previewImg.src = dataUrl;
     }
+    isInputStage() {
+      return this.inputArea.style.display === "block";
+    }
     show() {
       this.container.style.display = "flex";
       if (this.loginArea.style.display !== "flex") {
@@ -964,18 +1052,39 @@ ${prompt.INSTRUCTIONS || ""}`;
   };
 
   // src/utils/screenshot.ts
-  var ScreenshotUtil = class {
+  var _ScreenshotUtil = class _ScreenshotUtil {
     constructor() {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js";
-      script.async = true;
-      document.head.appendChild(script);
+      this.ensureLoaded().catch((err) => {
+        console.error("[FEEDBACK-WIDGET] Initial script load failed:", err);
+      });
     }
-    captureSelection(rect) {
+    ensureLoaded() {
+      if (_ScreenshotUtil.loadPromise) {
+        return _ScreenshotUtil.loadPromise;
+      }
+      if (typeof window.htmlToImage !== "undefined") {
+        _ScreenshotUtil.loadPromise = Promise.resolve();
+        return _ScreenshotUtil.loadPromise;
+      }
+      _ScreenshotUtil.loadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js";
+        script.async = true;
+        script.onload = () => {
+          console.log("[FEEDBACK-WIDGET] html-to-image loaded successfully.");
+          resolve();
+        };
+        script.onerror = () => {
+          _ScreenshotUtil.loadPromise = null;
+          reject(new Error("Failed to load html-to-image script from CDN."));
+        };
+        document.head.appendChild(script);
+      });
+      return _ScreenshotUtil.loadPromise;
+    }
+    captureSelection(rects, comments, fullPage = true) {
       return __async(this, null, function* () {
-        if (typeof htmlToImage === "undefined") {
-          throw new Error("html-to-image is still loading or failed to load. Please try again in a moment.");
-        }
+        yield this.ensureLoaded();
         console.log("[FEEDBACK-WIDGET] Starting screenshot capture with html-to-image...");
         const capturingToast = document.createElement("div");
         capturingToast.id = "fw-capturing-toast";
@@ -989,10 +1098,8 @@ ${prompt.INSTRUCTIONS || ""}`;
             cacheBust: true,
             filter: (node) => {
               if (node.tagName === "SCRIPT") return false;
-              if (node.id === "fw-toolbar") return false;
-              if (node.id === "fw-overlay") return false;
-              if (node.classList && node.classList.contains("fw-comment-input")) return false;
-              if (node.id && node.id.startsWith("fw-") && !node.id.startsWith("fw-comment-marker-")) return false;
+              if (node.id && node.id.startsWith("fw-")) return false;
+              if (node.classList && (node.classList.contains("fw-comment-input") || node.classList.contains("fw-comment-marker"))) return false;
               return true;
             }
           });
@@ -1006,22 +1113,60 @@ ${prompt.INSTRUCTIONS || ""}`;
             img.onload = () => {
               console.log("[FEEDBACK-WIDGET] Rendering selection overlay...");
               const canvas = document.createElement("canvas");
-              canvas.width = img.width;
-              canvas.height = img.height;
               const ctx = canvas.getContext("2d");
-              ctx.drawImage(img, 0, 0);
-              const rx = rect.x + window.scrollX;
-              const ry = rect.y + window.scrollY;
-              const rw = rect.width;
-              const rh = rect.height;
-              ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-              ctx.fillRect(0, 0, canvas.width, ry);
-              ctx.fillRect(0, ry + rh, canvas.width, canvas.height - (ry + rh));
-              ctx.fillRect(0, ry, rx, rh);
-              ctx.fillRect(rx + rw, ry, canvas.width - (rx + rw), rh);
-              ctx.strokeStyle = "#ff0000";
-              ctx.lineWidth = 2;
-              ctx.strokeRect(rx, ry, rw, rh);
+              if (fullPage) {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+              } else {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                ctx.drawImage(img, -window.scrollX, -window.scrollY);
+              }
+              if (rects.length > 0) {
+                const darkCanvas = document.createElement("canvas");
+                darkCanvas.width = canvas.width;
+                darkCanvas.height = canvas.height;
+                const darkCtx = darkCanvas.getContext("2d");
+                darkCtx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+                darkCtx.globalCompositeOperation = "destination-out";
+                darkCtx.fillStyle = "#000";
+                rects.forEach((rect) => {
+                  const rx = rect.x + (fullPage ? window.scrollX : 0);
+                  const ry = rect.y + (fullPage ? window.scrollY : 0);
+                  const rw = rect.width;
+                  const rh = rect.height;
+                  darkCtx.fillRect(rx, ry, rw, rh);
+                });
+                ctx.drawImage(darkCanvas, 0, 0);
+                rects.forEach((rect) => {
+                  const rx = rect.x + (fullPage ? window.scrollX : 0);
+                  const ry = rect.y + (fullPage ? window.scrollY : 0);
+                  const rw = rect.width;
+                  const rh = rect.height;
+                  ctx.strokeStyle = "#ff0000";
+                  ctx.lineWidth = 2;
+                  ctx.strokeRect(rx, ry, rw, rh);
+                });
+              }
+              comments.forEach((comment) => {
+                const cx = comment.x + (fullPage ? window.scrollX : 0);
+                const cy = comment.y + (fullPage ? window.scrollY : 0);
+                const radius = 18;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#e53e3e";
+                ctx.stroke();
+                ctx.fillStyle = "#e53e3e";
+                ctx.font = "bold 18px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(comment.number.toString(), cx, cy);
+              });
               const finalDataUrl = canvas.toDataURL("image/png");
               if (document.body.contains(capturingToast)) {
                 document.body.removeChild(capturingToast);
@@ -1047,6 +1192,8 @@ ${prompt.INSTRUCTIONS || ""}`;
       });
     }
   };
+  __publicField(_ScreenshotUtil, "loadPromise", null);
+  var ScreenshotUtil = _ScreenshotUtil;
 
   // src/index.ts
   (function() {
@@ -1066,6 +1213,9 @@ ${prompt.INSTRUCTIONS || ""}`;
       },
       onCancel: () => {
         resetAll();
+      },
+      onConfirm: (fullPage) => {
+        processSelection(overlay.getSelections(), fullPage);
       }
     });
     const commentOverlay = new CommentOverlay();
@@ -1089,6 +1239,7 @@ ${prompt.INSTRUCTIONS || ""}`;
       () => {
         modal.maximize();
         trigger.hideBadge();
+        toolbar.hide();
       }
     );
     function resetAll() {
@@ -1106,6 +1257,9 @@ ${prompt.INSTRUCTIONS || ""}`;
       onMinimize: () => {
         modal.minimize();
         trigger.showBadge();
+        if (modal.isInputStage()) {
+          toolbar.show();
+        }
       },
       onLogin: (password) => __async(null, null, function* () {
         const success = yield api.login(password);
@@ -1143,6 +1297,7 @@ ${prompt.INSTRUCTIONS || ""}`;
           screenshot: screenshotUrl,
           metadata
         };
+        commentOverlay.reset();
         try {
           const saveData = yield api.saveFeedback(payload);
           if (saveData.error) throw new Error(saveData.error);
@@ -1197,15 +1352,14 @@ ${prompt.INSTRUCTIONS || ""}`;
         fetchSources(true);
       }
     });
-    const overlay = new Overlay((rect) => {
-      processSelection(rect);
-    });
-    function processSelection(rect) {
+    const overlay = new Overlay();
+    function processSelection(rects, fullPage) {
       return __async(this, null, function* () {
         toolbar.hide();
         overlay.hide();
+        commentOverlay.hide();
         try {
-          const dataUrl = yield screenshotUtil.captureSelection(rect);
+          const dataUrl = yield screenshotUtil.captureSelection(rects, commentOverlay.getComments(), fullPage);
           modal.maximize();
           trigger.hideBadge();
           modal.setPreviewImage(dataUrl);

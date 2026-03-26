@@ -7,43 +7,77 @@ export interface RectParams {
 
 export class Overlay {
   private overlay: HTMLDivElement;
-  private selectionRect: HTMLDivElement;
   private isDrawing: boolean = false;
   private startX: number = 0;
   private startY: number = 0;
-  private rectParams: RectParams | null = null;
-  private onComplete: (rect: RectParams) => void;
+  private currentRectDiv: HTMLDivElement | null = null;
+  private currentRectParams: RectParams | null = null;
+  private rects: { div: HTMLDivElement, params: RectParams }[] = [];
+  private dimmingSvg: SVGSVGElement;
+  private dimmingPath: SVGPathElement;
 
-  constructor(onComplete: (rect: RectParams) => void) {
-    this.onComplete = onComplete;
-
+  constructor() {
     this.overlay = document.createElement('div');
     this.overlay.id = 'fw-overlay';
     document.body.appendChild(this.overlay);
 
-    this.selectionRect = document.createElement('div');
-    this.selectionRect.id = 'fw-selection-rect';
-    this.overlay.appendChild(this.selectionRect);
+    this.dimmingSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this.dimmingSvg.id = 'fw-overlay-dimming';
+    this.dimmingPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    this.dimmingPath.setAttribute('fill', 'rgba(0,0,0,0.4)');
+    this.dimmingPath.setAttribute('fill-rule', 'evenodd');
+    this.dimmingSvg.appendChild(this.dimmingPath);
+    this.overlay.appendChild(this.dimmingSvg);
 
     this.attachEvents();
   }
 
+  getSelections(): RectParams[] {
+      return this.rects.map(r => r.params);
+  }
+
+  private updateDimming() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let pathData = `M 0 0 H ${w} V ${h} H 0 Z`;
+
+    this.rects.forEach(r => {
+      const { x, y, width, height } = r.params;
+      pathData += ` M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
+    });
+
+    if (this.isDrawing && this.currentRectParams) {
+      const { x, y, width, height } = this.currentRectParams;
+      pathData += ` M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
+    }
+
+    this.dimmingPath.setAttribute('d', pathData);
+  }
+
   private attachEvents() {
     this.overlay.addEventListener('mousedown', (e: MouseEvent) => {
+      // Don't start drawing if clicking on a close button
+      if ((e.target as HTMLElement).classList.contains('fw-selection-close')) return;
+
       this.isDrawing = true;
       this.startX = e.clientX;
       this.startY = e.clientY;
 
-      this.selectionRect.style.left = `${this.startX}px`;
-      this.selectionRect.style.top = `${this.startY}px`;
-      this.selectionRect.style.width = '0px';
-      this.selectionRect.style.height = '0px';
+      this.currentRectDiv = document.createElement('div');
+      this.currentRectDiv.className = 'fw-selection-rect';
+      this.currentRectDiv.style.left = `${this.startX}px`;
+      this.currentRectDiv.style.top = `${this.startY}px`;
+      this.currentRectDiv.style.width = '0px';
+      this.currentRectDiv.style.height = '0px';
+      this.currentRectDiv.style.display = 'block';
+      this.overlay.appendChild(this.currentRectDiv);
 
       this.overlay.classList.add('fw-drawing');
+      this.updateDimming();
     });
 
     this.overlay.addEventListener('mousemove', (e: MouseEvent) => {
-      if (!this.isDrawing) return;
+      if (!this.isDrawing || !this.currentRectDiv) return;
 
       const currentX = e.clientX;
       const currentY = e.clientY;
@@ -53,12 +87,13 @@ export class Overlay {
       const left = Math.min(currentX, this.startX);
       const top = Math.min(currentY, this.startY);
 
-      this.selectionRect.style.left = `${left}px`;
-      this.selectionRect.style.top = `${top}px`;
-      this.selectionRect.style.width = `${width}px`;
-      this.selectionRect.style.height = `${height}px`;
+      this.currentRectDiv.style.left = `${left}px`;
+      this.currentRectDiv.style.top = `${top}px`;
+      this.currentRectDiv.style.width = `${width}px`;
+      this.currentRectDiv.style.height = `${height}px`;
 
-      this.rectParams = { x: left, y: top, width, height };
+      this.currentRectParams = { x: left, y: top, width, height };
+      this.updateDimming();
     });
 
     this.overlay.addEventListener('mouseup', () => {
@@ -67,19 +102,41 @@ export class Overlay {
 
       document.body.style.userSelect = '';
 
-      if (this.rectParams && this.rectParams.width > 10 && this.rectParams.height > 10) {
-        // Rectangle has been drawn, trigger screenshot
-        this.onComplete(this.rectParams);
+      if (this.currentRectParams && this.currentRectParams.width > 20 && this.currentRectParams.height > 20) {
+        const div = this.currentRectDiv!;
+        const params = this.currentRectParams;
+        const selectionObj = { div, params };
+        this.rects.push(selectionObj);
+
+        // Add close button
+        const closeBtn = document.createElement('div');
+        closeBtn.className = 'fw-selection-close';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.title = 'Remove selection';
+        div.appendChild(closeBtn);
+
+        closeBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+        });
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            div.remove();
+            this.rects = this.rects.filter(r => r !== selectionObj);
+            this.updateDimming();
+        });
       } else {
-        // Clicked without dragging, cancel
-        this.reset();
+        if (this.currentRectDiv) this.currentRectDiv.remove();
       }
+      this.currentRectParams = null;
+      this.currentRectDiv = null;
+      this.updateDimming();
     });
   }
 
   show() {
     this.overlay.style.display = 'block';
     document.body.style.userSelect = 'none'; // Prevent text selection
+    this.updateDimming();
   }
 
   hide() {
@@ -89,8 +146,10 @@ export class Overlay {
   reset() {
     this.hide();
     this.overlay.classList.remove('fw-drawing');
-    this.selectionRect.style.width = '0px';
-    this.selectionRect.style.height = '0px';
-    this.rectParams = null;
+    Array.from(this.overlay.querySelectorAll('.fw-selection-rect')).forEach(el => el.remove());
+    this.rects = [];
+    this.currentRectParams = null;
+    this.currentRectDiv = null;
+    this.updateDimming();
   }
 }

@@ -3,6 +3,7 @@ export type ToolbarMode = 'select' | 'comment';
 export interface ToolbarCallbacks {
   onModeChanged: (mode: ToolbarMode) => void;
   onCancel: () => void;
+  onConfirm: (fullPage: boolean) => void;
 }
 
 export class Toolbar {
@@ -10,6 +11,9 @@ export class Toolbar {
   private selectBtn: HTMLButtonElement;
   private commentBtn: HTMLButtonElement;
   private cancelBtn: HTMLButtonElement;
+  private confirmBtn: HTMLButtonElement;
+  private togglePageBtn: HTMLButtonElement;
+  private fullPage = false;
 
   private isDragging = false;
   private currentX = 0;
@@ -34,7 +38,7 @@ export class Toolbar {
       display: none;
       align-items: center;
       padding: 5px;
-      z-index: 100000;
+      z-index: 1000020;
       gap: 5px;
       cursor: grab;
     `;
@@ -67,7 +71,7 @@ export class Toolbar {
     this.selectBtn = document.createElement('button');
     this.selectBtn.title = 'Select Area';
     this.selectBtn.style.cssText = btnStyle;
-    this.selectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+    this.selectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-dasharray="3 3"></rect></svg>';
 
     this.commentBtn = document.createElement('button');
     this.commentBtn.title = 'Add Comment';
@@ -82,10 +86,32 @@ export class Toolbar {
     this.cancelBtn.style.cssText = btnStyle + 'color: #e53e3e;';
     this.cancelBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
+    this.confirmBtn = document.createElement('button');
+    this.confirmBtn.title = 'Confirm Screenshot';
+    this.confirmBtn.style.cssText = btnStyle + 'color: #38a169;';
+    this.confirmBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+    this.togglePageBtn = document.createElement('button');
+    const updateToggleIcon = () => {
+      if (this.fullPage) {
+        this.togglePageBtn.title = 'Full Page (active) - Click to switch to Viewport';
+        this.togglePageBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>';
+        this.togglePageBtn.style.color = '#2b6cb0';
+      } else {
+        this.togglePageBtn.title = 'Viewport (active) - Click to switch to Full Page';
+        this.togglePageBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+        this.togglePageBtn.style.color = '#2b6cb0';
+      }
+    };
+    this.togglePageBtn.style.cssText = btnStyle;
+    updateToggleIcon();
+
     this.container.appendChild(this.selectBtn);
     this.container.appendChild(this.commentBtn);
     this.container.appendChild(divider);
+    this.container.appendChild(this.togglePageBtn); // Add toggle before actions
     this.container.appendChild(this.cancelBtn);
+    this.container.appendChild(this.confirmBtn);
 
     document.body.appendChild(this.container);
 
@@ -93,6 +119,8 @@ export class Toolbar {
     this.attachHover(this.selectBtn);
     this.attachHover(this.commentBtn);
     this.attachHover(this.cancelBtn, '#fed7d7');
+    this.attachHover(this.confirmBtn, '#c6f6d5');
+    this.attachHover(this.togglePageBtn);
 
     // Events
     this.selectBtn.addEventListener('click', () => {
@@ -108,6 +136,16 @@ export class Toolbar {
     this.cancelBtn.addEventListener('click', () => {
       this.callbacks.onCancel();
       this.resetActiveBtn();
+    });
+
+    this.confirmBtn.addEventListener('click', () => {
+      this.callbacks.onConfirm(this.fullPage);
+      this.resetActiveBtn();
+    });
+
+    this.togglePageBtn.addEventListener('click', () => {
+      this.fullPage = !this.fullPage;
+      updateToggleIcon();
     });
 
     this.setupDragging();

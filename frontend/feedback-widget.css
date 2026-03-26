@@ -16,7 +16,7 @@
     font-size: 14px;
     cursor: pointer;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 999999;
+    z-index: 1000000;
     user-select: none;
 }
 
@@ -40,7 +40,7 @@
     justify-content: center;
     cursor: pointer;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 999999;
+    z-index: 1000000;
     transition: background-color 0.2s, transform 0.2s;
 }
 
@@ -61,21 +61,54 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.4);
-    z-index: 1000000;
+    background-color: transparent;
+    z-index: 1000010;
     cursor: crosshair;
     display: none;
 }
 
 /* --- Selection Rectangle --- */
-#fw-selection-rect {
+.fw-selection-rect {
     position: absolute;
     border: 2px dashed #fff;
     background-color: rgba(255, 255, 255, 0.1);
     display: none;
+    pointer-events: auto;
+}
+
+#fw-overlay-dimming {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
-    /* Highlight selected area while dimming rest */
+}
+
+.fw-selection-close {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    background: #e53e3e;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    z-index: 1000040;
+    border: 1px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.fw-selection-close:hover {
+    background: #c53030;
+    transform: scale(1.1);
 }
 
 /* Override dimming on overlay when rectangle is active to use box-shadow approach */
@@ -83,7 +116,7 @@
     background-color: transparent;
 }
 
-#fw-overlay.fw-drawing #fw-selection-rect {
+#fw-overlay.fw-drawing .fw-selection-rect {
     display: block;
 }
 
@@ -95,7 +128,7 @@
     width: 100vw;
     height: 100vh;
     background-color: rgba(0, 0, 0, 0.6);
-    z-index: 1000001;
+    z-index: 1000030;
     display: none;
     justify-content: center;
     align-items: center;

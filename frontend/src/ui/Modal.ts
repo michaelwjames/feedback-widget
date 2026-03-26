@@ -221,6 +221,10 @@ export class Modal {
     this.previewImg.src = dataUrl;
   }
 
+  isInputStage(): boolean {
+    return this.inputArea.style.display === 'block';
+  }
+
   show() {
     this.container.style.display = 'flex';
     if (this.loginArea.style.display !== 'flex') {

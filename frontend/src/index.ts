@@ -28,6 +28,9 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
     },
     onCancel: () => {
       resetAll();
+    },
+    onConfirm: (fullPage: boolean) => {
+      processSelection(overlay.getSelections(), fullPage);
     }
   });
 
@@ -57,6 +60,8 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
     () => {
       modal.maximize();
       trigger.hideBadge();
+      // Hide toolbar when modal is maximized to prevent UI overlap
+      toolbar.hide();
     }
   );
 
@@ -76,6 +81,11 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
     onMinimize: () => {
       modal.minimize();
       trigger.showBadge();
+      // If we are still in the input stage (haven't submitted for analysis yet), 
+      // bring back the toolbar so the user can adjust selection/comments
+      if (modal.isInputStage()) {
+        toolbar.show();
+      }
     },
     onLogin: async (password: string) => {
       const success = await api.login(password);
@@ -97,7 +107,6 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
       }
     },
     onSubmitAnalyze: async (text: string, screenshotUrl: string) => {
-
       modal.setLoading();
 
       const metadata = {
@@ -117,6 +126,9 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         screenshot: screenshotUrl,
         metadata
       };
+
+      // Input stage is over, clear the DOM markers
+      commentOverlay.reset();
 
       try {
         // Step 1: Save the feedback files
@@ -183,17 +195,16 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
     }
   });
 
-  const overlay = new Overlay((rect: RectParams) => {
-    processSelection(rect);
-  });
+  const overlay = new Overlay();
 
-  async function processSelection(rect: RectParams) {
+  async function processSelection(rects: RectParams[], fullPage: boolean) {
     // Hide UI elements before taking screenshot
     toolbar.hide();
     overlay.hide();
+    commentOverlay.hide();
 
     try {
-      const dataUrl = await screenshotUtil.captureSelection(rect);
+      const dataUrl = await screenshotUtil.captureSelection(rects, commentOverlay.getComments(), fullPage);
 
       // Now that screenshot is captured, we can process the rest
       modal.maximize();
@@ -205,7 +216,6 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
       alert("Screenshot capture failed. Error: " + err.message);
     } finally {
       overlay.reset();
-      // Keep comment markers visible while modal is open (they will be cleaned on reset/cancel)
     }
   }
 

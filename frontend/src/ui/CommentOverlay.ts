@@ -16,7 +16,7 @@ export class CommentOverlay {
       left: 0;
       width: 100vw;
       height: 100vh;
-      z-index: 99998;
+      z-index: 1000010;
       display: none;
       cursor: crosshair;
     `;
@@ -86,10 +86,10 @@ export class CommentOverlay {
       top: ${y}px;
       left: ${x}px;
       transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
+      width: 36px;
+      height: 36px;
       background: #fff;
-      border: 2px solid #e53e3e;
+      border: 3px solid #e53e3e;
       border-radius: 50%;
       color: #e53e3e;
       display: flex;
@@ -97,9 +97,9 @@ export class CommentOverlay {
       justify-content: center;
       font-weight: bold;
       font-family: sans-serif;
-      font-size: 14px;
-      z-index: 99999;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      font-size: 18px;
+      z-index: 1000011;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
     `;
     document.body.appendChild(marker);
 
@@ -109,7 +109,7 @@ export class CommentOverlay {
     this.activeInput.style.cssText = `
       position: fixed;
       top: ${y}px;
-      left: ${x + 20}px;
+      left: ${x + 24}px;
       transform: translateY(-50%);
       background: white;
       border: 1px solid #cbd5e0;
@@ -117,7 +117,7 @@ export class CommentOverlay {
       padding: 5px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       display: flex;
-      z-index: 99999;
+      z-index: 1000011;
     `;
 
     const input = document.createElement('input');

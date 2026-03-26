@@ -1,22 +1,51 @@
 import { RectParams } from '../ui/Overlay';
+import { FeedbackComment } from '../types';
 
 declare global {
   const htmlToImage: any;
 }
 
 export class ScreenshotUtil {
+  private static loadPromise: Promise<void> | null = null;
+
   constructor() {
-    // Dynamically load html-to-image from cdnjs
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
-    script.async = true;
-    document.head.appendChild(script);
+    this.ensureLoaded().catch(err => {
+      console.error("[FEEDBACK-WIDGET] Initial script load failed:", err);
+    });
   }
 
-  async captureSelection(rect: RectParams): Promise<string> {
-    if (typeof htmlToImage === 'undefined') {
-      throw new Error('html-to-image is still loading or failed to load. Please try again in a moment.');
+  private ensureLoaded(): Promise<void> {
+    if (ScreenshotUtil.loadPromise) {
+      return ScreenshotUtil.loadPromise;
     }
+
+    // Check if it's already there (e.g. from an earlier load or outside source)
+    if (typeof (window as any).htmlToImage !== 'undefined') {
+      ScreenshotUtil.loadPromise = Promise.resolve();
+      return ScreenshotUtil.loadPromise;
+    }
+
+    ScreenshotUtil.loadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
+      script.async = true;
+      script.onload = () => {
+        console.log("[FEEDBACK-WIDGET] html-to-image loaded successfully.");
+        resolve();
+      };
+      script.onerror = () => {
+        ScreenshotUtil.loadPromise = null; // Allow retry on failure
+        reject(new Error("Failed to load html-to-image script from CDN."));
+      };
+      document.head.appendChild(script);
+    });
+
+    return ScreenshotUtil.loadPromise;
+  }
+
+  async captureSelection(rects: RectParams[], comments: FeedbackComment[], fullPage: boolean = true): Promise<string> {
+    // Wait for the library to be ready before starting capture
+    await this.ensureLoaded();
 
     console.log("[FEEDBACK-WIDGET] Starting screenshot capture with html-to-image...");
 
@@ -36,12 +65,13 @@ export class ScreenshotUtil {
         filter: (node: HTMLElement) => {
           // Exclude scripts and our own widget elements to prevent capture errors/recursion
           if (node.tagName === 'SCRIPT') return false;
-          if (node.id === 'fw-toolbar') return false; // Exclude floating toolbar
-          if (node.id === 'fw-overlay') return false; // Exclude selection overlay
-          if (node.classList && node.classList.contains('fw-comment-input')) return false; // Exclude text inputs
-
-          // But KEEP the comment markers themselves (they have class 'fw-comment-marker')
-          if (node.id && node.id.startsWith('fw-') && !node.id.startsWith('fw-comment-marker-')) return false;
+          
+          // Exclude ALL elements with 'fw-' prefix or widget-specific classes
+          if (node.id && node.id.startsWith('fw-')) return false;
+          if (node.classList && (
+            node.classList.contains('fw-comment-input') || 
+            node.classList.contains('fw-comment-marker')
+          )) return false;
 
           return true;
         }
@@ -61,28 +91,76 @@ export class ScreenshotUtil {
           console.log("[FEEDBACK-WIDGET] Rendering selection overlay...");
 
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
           const ctx = canvas.getContext('2d')!;
 
-          ctx.drawImage(img, 0, 0);
+          if (fullPage) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          } else {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.drawImage(img, -window.scrollX, -window.scrollY);
+          }
 
-          const rx = rect.x + window.scrollX;
-          const ry = rect.y + window.scrollY;
-          const rw = rect.width;
-          const rh = rect.height;
+          if (rects.length > 0) {
+            const darkCanvas = document.createElement('canvas');
+            darkCanvas.width = canvas.width;
+            darkCanvas.height = canvas.height;
+            const darkCtx = darkCanvas.getContext('2d')!;
+            
+            darkCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+            
+            darkCtx.globalCompositeOperation = 'destination-out';
+            darkCtx.fillStyle = '#000';
+            rects.forEach(rect => {
+              // If viewport only, rect.x/y are already viewport-relative.
+              // If full page, we need to add scroll.
+              const rx = rect.x + (fullPage ? window.scrollX : 0);
+              const ry = rect.y + (fullPage ? window.scrollY : 0);
+              const rw = rect.width;
+              const rh = rect.height;
+              darkCtx.fillRect(rx, ry, rw, rh);
+            });
+            
+            ctx.drawImage(darkCanvas, 0, 0);
 
-          // Draw dark overlay on unselected areas
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-          ctx.fillRect(0, 0, canvas.width, ry); // Top
-          ctx.fillRect(0, ry + rh, canvas.width, canvas.height - (ry + rh)); // Bottom
-          ctx.fillRect(0, ry, rx, rh); // Left
-          ctx.fillRect(rx + rw, ry, canvas.width - (rx + rw), rh); // Right
+            rects.forEach(rect => {
+              const rx = rect.x + (fullPage ? window.scrollX : 0);
+              const ry = rect.y + (fullPage ? window.scrollY : 0);
+              const rw = rect.width;
+              const rh = rect.height;
+              ctx.strokeStyle = '#ff0000';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(rx, ry, rw, rh);
+            });
+          }
 
-          // Draw red border around selected area
-          ctx.strokeStyle = '#ff0000';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(rx, ry, rw, rh);
+          // Draw comment markers manually for maximum clarity
+          comments.forEach(comment => {
+            const cx = comment.x + (fullPage ? window.scrollX : 0);
+            const cy = comment.y + (fullPage ? window.scrollY : 0);
+            const radius = 18; // (36px width / 2)
+
+            // Circle background
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // Border
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#e53e3e';
+            ctx.stroke();
+
+            // Text
+            ctx.fillStyle = '#e53e3e';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(comment.number.toString(), cx, cy);
+          });
 
           // Update final preview
           const finalDataUrl = canvas.toDataURL('image/png');
