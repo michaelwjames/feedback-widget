@@ -191,12 +191,50 @@
     color: #2d3748;
 }
 
-/* --- Loader and Agent Results --- */
-#fw-loading-area, #fw-result-area {
+/* --- Loader, Agent Results, and Login --- */
+#fw-loading-area, #fw-result-area, #fw-login-area {
     display: none;
     flex-direction: column;
     padding: 20px 0;
 }
+
+#fw-login-area {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+#fw-login-area h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #2d3748;
+}
+
+#fw-login-area p {
+    font-size: 14px;
+    color: #4a5568;
+    margin-bottom: 20px;
+}
+
+#fw-password-input {
+    width: 250px;
+    padding: 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#fw-login-error {
+    color: #e53e3e;
+    font-size: 13px;
+    margin-top: 5px;
+    font-weight: bold;
+    display: none;
+}
+
 
 #fw-loading-area {
     align-items: center;

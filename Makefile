@@ -16,34 +16,31 @@ help:
 
 install:
 	@echo "Installing Node.js dependencies in frontend & backend..."
-	cd feedback-tool/frontend && pnpm install
-	cd feedback-tool/backend && pnpm install
+	cd frontend && pnpm install
+	cd backend && pnpm install
 	
 build:
 	@echo "Building frontend & backend..."
-	cd feedback-tool/frontend && pnpm run build
-	cd feedback-tool/backend && pnpm run build
+	cd frontend && pnpm run build
+	cd backend && pnpm run build
 
 run:
 	@echo "Starting the Feedback Server at http://localhost:12345..."
-	cd feedback-tool/backend && pnpm start
+	cd backend && pnpm start
 
 test:
 	@echo "Running tests..."
-	cd feedback-tool/backend && pnpm test
+	cd backend && pnpm test
 
 clean:
 	@echo "Cleaning up..."
-	rm -rf feedback-tool/frontend/node_modules
-	rm -rf feedback-tool/backend/node_modules
-	rm -rf feedback-tool/feedbacks/*
-	rm -f feedback-tool/backend/jules_sources.json
-	find . -name "*.pyc" -delete
-	find . -name "__pycache__" -delete
+	rm -rf frontend/node_modules
+	rm -rf backend/node_modules
+	rm -f backend/feedbacks/*
+	rm -f backend/jules_sources.json
 	@echo "Clean complete."
 
 setup:
 	@echo "Setting up templates for environment variables..."
-	cp agents/groq-vision-ocr/.env.example agents/groq-vision-ocr/.env || true
-	cp agents/jules-subagent/.env.example agents/jules-subagent/.env || true
+	cp backend/.env.example backend/.env || true
 	@echo ".env templates created. Please update them with your API keys."
