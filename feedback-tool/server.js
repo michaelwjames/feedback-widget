@@ -131,6 +131,14 @@ app.post('/api/feedback', async (req, res) => {
             markdownContent += `- **User Agent:** \`${metadata.userAgent || 'N/A'}\`\n`;
             markdownContent += `- **Resolution:** ${metadata.screenResolution || 'N/A'} (Window: ${metadata.windowSize || 'N/A'})\n`;
             markdownContent += `- **Timestamp:** ${metadata.timestamp || 'N/A'}\n\n`;
+
+            if (metadata.comments && metadata.comments.length > 0) {
+                markdownContent += `## Comments\n\n`;
+                metadata.comments.forEach(comment => {
+                    markdownContent += `${comment.number}. **${comment.text}** (x: ${comment.x}, y: ${comment.y})\n`;
+                });
+                markdownContent += `\n`;
+            }
         }
 
         let imagePath = null;
