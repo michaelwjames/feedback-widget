@@ -1,0 +1,100 @@
+import fs from 'fs';
+import path from 'path';
+import Groq from 'groq-sdk';
+import { config } from '../../config';
+import { VisionProvider, VisionAnalysisResult } from './interface';
+
+const DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const SYSTEM_PROMPT = (
+    "You are an expert web development assistant. You will be provided with a screenshot of a user's web page where they have given feedback, " +
+    "along with frontend data and context in markdown format. " +
+    "Create a highly structured prompt that will be sent to another AI agent (Jules) to fix this issue. " +
+    "Your response MUST be a JSON object with a 'prompt_for_jules' field. " +
+    "The 'prompt_for_jules' string should follow this specific format:\n\n" +
+    "### CONTEXT\n" +
+    "- Include relevant page metadata (URL, resolution, user agent, etc.)\n" +
+    "- Describe what's seen in the screenshot and the user's specific feedback or markers.\n\n" +
+    "### INSTRUCTIONS\n" +
+    "- Direct and specific technical instructions for Jules to resolve the issue."
+);
+
+export class GroqVisionProvider extends BaseVisionProvider {
+    async runAnalysis(mdFilePath: string, imagePaths: string[], outputPath: string): Promise<VisionAnalysisResult> {
+        try {
+            if (!fs.existsSync(mdFilePath)) {
+                throw new Error(`Markdown file does not exist: ${mdFilePath}`);
+            }
+
+            const mdContent = fs.readFileSync(mdFilePath, 'utf8');
+            const prompt = `Feedback context markdown:\n${mdContent}\n`;
+
+            let contents: any[] = [];
+            if (imagePaths && imagePaths.length > 0 && imagePaths[0]) {
+                contents = this.buildImageContents(imagePaths);
+            }
+
+            const result = await this.callGroq(prompt, contents);
+
+            this.writeJson(outputPath, result);
+
+            return result;
+        } catch (exc: any) {
+            console.error(`Error in GroqVisionProvider: ${exc.message}`);
+            throw exc;
+        }
+    }
+
+    private async callGroq(
+        prompt: string,
+        imageContents: any[],
+        model: string = DEFAULT_MODEL,
+        temperature: number = 0.1
+    ): Promise<VisionAnalysisResult> {
+        const apiKey = config.groqApiKey;
+        if (!apiKey) {
+            throw new Error("GROQ_API_KEY environment variable is required.");
+        }
+
+        const client = new Groq({ apiKey });
+
+        const messages: any[] = [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    ...imageContents
+                ]
+            }
+        ];
+
+        const startTime = Date.now();
+
+        const completion = await client.chat.completions.create({
+            model,
+            messages,
+            temperature,
+            max_completion_tokens: 2048,
+            response_format: { type: "json_object" }
+        });
+
+        const elapsed = (Date.now() - startTime) / 1000;
+
+        const usage = completion.usage;
+        console.error(
+            `[INFO] Groq API call completed in ${elapsed.toFixed(2)}s | ` +
+            `total_tokens=${usage?.total_tokens ?? 'N/A'}`
+        );
+
+        const content = completion.choices[0]?.message?.content;
+        if (!content) {
+            throw new Error("Empty response received from the Groq API.");
+        }
+
+        try {
+            return JSON.parse(content);
+        } catch (err) {
+            throw new Error("Failed to parse Groq response as JSON.");
+        }
+    }
+}

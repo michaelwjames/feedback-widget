@@ -33,8 +33,21 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
 
   const commentOverlay = new CommentOverlay();
 
+  let hasInitted = false;
   const trigger = new Trigger(
-    () => {
+    async () => {
+      // Check auth first
+      const isAuthenticated = await api.checkAuth();
+      if (!isAuthenticated) {
+        modal.setLoginRequired();
+        return;
+      }
+
+      if (!hasInitted) {
+          await initData();
+          hasInitted = true;
+      }
+
       // Ensure fresh feedback clicks always reset the process
       modal.reset();
       commentOverlay.reset();
@@ -49,7 +62,7 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
 
   function resetAll() {
     toolbar.hide();
-    overlay.reset();
+    overlay.hide();
     commentOverlay.reset();
     modal.reset();
   }
@@ -64,7 +77,27 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
       modal.minimize();
       trigger.showBadge();
     },
+    onLogin: async (password: string) => {
+      const success = await api.login(password);
+      if (success) {
+        modal.reset();
+        await initData(); // Fetch personas/sources after login
+        hasInitted = true;
+        // Since we intended to start the feedback process, let's open the toolbar
+        toolbar.show();
+        toolbar.resetActiveBtn();
+      } else {
+        modal.setLoginError(true);
+      }
+    },
+    onDownload: () => {
+      if (currentFeedbackDir) {
+        const downloadUrl = `${config.endpoint.replace('/feedback', '')}/feedback/download?path=${encodeURIComponent(currentFeedbackDir)}`;
+        window.open(downloadUrl, '_blank');
+      }
+    },
     onSubmitAnalyze: async (text: string, screenshotUrl: string) => {
+
       modal.setLoading();
 
       const metadata = {

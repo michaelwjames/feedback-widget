@@ -32,9 +32,34 @@
       this.config = config;
       this.baseUrl = config.endpoint.split("/api/feedback")[0];
     }
+    checkAuth() {
+      return __async(this, null, function* () {
+        try {
+          const res = yield fetch(`${this.baseUrl}/api/auth/check`, { credentials: "include" });
+          return res.ok;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+    login(password) {
+      return __async(this, null, function* () {
+        try {
+          const res = yield fetch(`${this.baseUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }),
+            credentials: "include"
+          });
+          return res.ok;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
     fetchDefaults() {
       return __async(this, null, function* () {
-        const res = yield fetch(`${this.baseUrl}/api/jules/defaults`);
+        const res = yield fetch(`${this.baseUrl}/api/jules/defaults`, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       });
@@ -42,14 +67,14 @@
     fetchSources(refresh = false) {
       return __async(this, null, function* () {
         const url = `${this.baseUrl}/api/jules/sources${refresh ? "?refresh=true" : ""}`;
-        const res = yield fetch(url);
+        const res = yield fetch(url, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       });
     }
     fetchPersonas() {
       return __async(this, null, function* () {
-        const res = yield fetch(`${this.baseUrl}/api/jules/personas`);
+        const res = yield fetch(`${this.baseUrl}/api/jules/personas`, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       });
@@ -59,7 +84,8 @@
         const res = yield fetch(this.config.endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          credentials: "include"
         });
         return res.json();
       });
@@ -69,7 +95,8 @@
         const res = yield fetch(`${this.baseUrl}/api/send-to-jules`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          credentials: "include"
         });
         return res.json();
       });
@@ -506,6 +533,9 @@
       __publicField(this, "inputArea");
       __publicField(this, "loadingArea");
       __publicField(this, "resultArea");
+      __publicField(this, "loginArea");
+      __publicField(this, "passwordInput");
+      __publicField(this, "loginError");
       __publicField(this, "proposedPrompt");
       __publicField(this, "editPromptBtn");
       __publicField(this, "successContainer");
@@ -513,6 +543,7 @@
       __publicField(this, "branchSelect");
       __publicField(this, "personaSelect");
       __publicField(this, "refreshReposBtn");
+      __publicField(this, "downloadBtn");
       __publicField(this, "isEditingPrompt", false);
       __publicField(this, "basePrompt", "");
       __publicField(this, "availableSources", []);
@@ -529,6 +560,13 @@
                 </div>
             </div>
             <div class="fw-modal-body">
+                <div id="fw-login-area">
+                    <h3>Authentication Required</h3>
+                    <p>Enter the widget password to continue.</p>
+                    <input type="password" id="fw-password-input" placeholder="Password..." />
+                    <div id="fw-login-error">Invalid password. Please try again.</div>
+                </div>
+
                 <div id="fw-input-area">
                     <img id="fw-screenshot-preview" src="" alt="Screenshot preview" />
                     <textarea id="fw-feedback-text" placeholder="Explain the issue or feedback..."></textarea>
@@ -576,6 +614,7 @@
                         </div>
                     </div>
 
+                    <button id="fw-download-zip" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%;">Download Feedback as ZIP</button>
                     <div id="fw-success-container"></div>
                 </div>
             </div>
@@ -592,6 +631,9 @@
       this.submitBtn = this.container.querySelector(".fw-btn-submit");
       this.previewImg = this.container.querySelector("#fw-screenshot-preview");
       this.textArea = this.container.querySelector("#fw-feedback-text");
+      this.loginArea = this.container.querySelector("#fw-login-area");
+      this.passwordInput = this.container.querySelector("#fw-password-input");
+      this.loginError = this.container.querySelector("#fw-login-error");
       this.inputArea = this.container.querySelector("#fw-input-area");
       this.loadingArea = this.container.querySelector("#fw-loading-area");
       this.resultArea = this.container.querySelector("#fw-result-area");
@@ -602,6 +644,7 @@
       this.branchSelect = this.container.querySelector("#fw-branch-select");
       this.personaSelect = this.container.querySelector("#fw-persona-select");
       this.refreshReposBtn = this.container.querySelector("#fw-refresh-sources");
+      this.downloadBtn = this.container.querySelector("#fw-download-zip");
       this.attachEvents();
     }
     attachEvents() {
@@ -609,6 +652,7 @@
       this.cancelBtn.addEventListener("click", this.callbacks.onClose);
       this.minimizeBtn.addEventListener("click", this.callbacks.onMinimize);
       this.refreshReposBtn.addEventListener("click", this.callbacks.onRefreshSources);
+      this.downloadBtn.addEventListener("click", this.callbacks.onDownload);
       this.editPromptBtn.addEventListener("click", () => {
         this.isEditingPrompt = !this.isEditingPrompt;
         this.proposedPrompt.readOnly = !this.isEditingPrompt;
@@ -628,7 +672,9 @@
         this.updateBranchOptions();
       });
       this.submitBtn.addEventListener("click", () => {
-        if (this.submitBtn.innerText === "Analyze Feedback") {
+        if (this.submitBtn.innerText === "Login") {
+          this.callbacks.onLogin(this.passwordInput.value);
+        } else if (this.submitBtn.innerText === "Analyze Feedback") {
           this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
         } else if (this.submitBtn.innerText === "Send to Jules") {
           this.callbacks.onSubmitSend({
@@ -640,12 +686,29 @@
         }
       });
     }
+    setLoginRequired() {
+      this.container.style.display = "flex";
+      this.loginArea.style.display = "flex";
+      this.inputArea.style.display = "none";
+      this.loadingArea.style.display = "none";
+      this.resultArea.style.display = "none";
+      this.submitBtn.innerText = "Login";
+      this.submitBtn.disabled = false;
+      this.submitBtn.style.display = "inline-block";
+      this.passwordInput.value = "";
+      this.passwordInput.focus();
+    }
+    setLoginError(show) {
+      this.loginError.style.display = show ? "block" : "none";
+    }
     setPreviewImage(dataUrl) {
       this.previewImg.src = dataUrl;
     }
     show() {
       this.container.style.display = "flex";
-      this.textArea.focus();
+      if (this.loginArea.style.display !== "flex") {
+        this.textArea.focus();
+      }
     }
     hide() {
       this.container.style.display = "none";
@@ -663,8 +726,11 @@
       this.textArea.value = "";
       this.previewImg.src = "";
       this.basePrompt = "";
+      this.passwordInput.value = "";
+      this.loginError.style.display = "none";
       this.container.style.visibility = "";
       this.container.style.pointerEvents = "";
+      this.loginArea.style.display = "none";
       this.inputArea.style.display = "block";
       this.loadingArea.style.display = "none";
       this.resultArea.style.display = "none";
@@ -957,13 +1023,23 @@
       }
     });
     const commentOverlay = new CommentOverlay();
+    let hasInitted = false;
     const trigger = new Trigger(
-      () => {
+      () => __async(null, null, function* () {
+        const isAuthenticated = yield api.checkAuth();
+        if (!isAuthenticated) {
+          modal.setLoginRequired();
+          return;
+        }
+        if (!hasInitted) {
+          yield initData();
+          hasInitted = true;
+        }
         modal.reset();
         commentOverlay.reset();
         toolbar.show();
         toolbar.resetActiveBtn();
-      },
+      }),
       () => {
         modal.maximize();
         trigger.hideBadge();
@@ -971,7 +1047,7 @@
     );
     function resetAll() {
       toolbar.hide();
-      overlay.reset();
+      overlay.hide();
       commentOverlay.reset();
       modal.reset();
     }
@@ -984,6 +1060,24 @@
       onMinimize: () => {
         modal.minimize();
         trigger.showBadge();
+      },
+      onLogin: (password) => __async(null, null, function* () {
+        const success = yield api.login(password);
+        if (success) {
+          modal.reset();
+          yield initData();
+          hasInitted = true;
+          toolbar.show();
+          toolbar.resetActiveBtn();
+        } else {
+          modal.setLoginError(true);
+        }
+      }),
+      onDownload: () => {
+        if (currentFeedbackDir) {
+          const downloadUrl = `${config.endpoint.replace("/feedback", "")}/feedback/download?path=${encodeURIComponent(currentFeedbackDir)}`;
+          window.open(downloadUrl, "_blank");
+        }
       },
       onSubmitAnalyze: (text, screenshotUrl) => __async(null, null, function* () {
         modal.setLoading();

@@ -23,6 +23,7 @@ export const config = {
     defaultsExampleFile: process.env.DEFAULTS_EXAMPLE_FILE || path.resolve(process.cwd(), 'defaults.json.example'),
     personasFile: process.env.PERSONAS_FILE || path.resolve(process.cwd(), 'agent_personas.json'),
     staticDir: process.env.STATIC_DIR || (path.basename(process.cwd()) === 'backend' ? path.resolve(process.cwd(), '..') : process.cwd()),
+    visionProvider: process.env.VISION_PROVIDER || 'groq',
 };
 
 

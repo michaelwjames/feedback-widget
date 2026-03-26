@@ -8,6 +8,10 @@
     {
       "src": "frontend/*.{js,css}",
       "use": "@vercel/static"
+    },
+    {
+      "src": "test_page.html",
+      "use": "@vercel/static"
     }
   ],
   "rewrites": [
@@ -22,6 +26,11 @@
     {
       "source": "/feedback-widget.css",
       "destination": "/frontend/feedback-widget.css"
+    },
+    {
+      "source": "/",
+      "destination": "/test_page.html"
     }
   ]
 }
+

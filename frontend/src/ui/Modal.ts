@@ -6,6 +6,8 @@ export interface ModalCallbacks {
   onSubmitAnalyze: (text: string, screenshotUrl: string) => void;
   onSubmitSend: (payload: { sourceId: string; branch: string; persona: string; prompt: string }) => void;
   onRefreshSources: () => void;
+  onLogin: (password: string) => void;
+  onDownload: () => void;
 }
 
 export class Modal {
@@ -19,6 +21,9 @@ export class Modal {
   private inputArea: HTMLDivElement;
   private loadingArea: HTMLDivElement;
   private resultArea: HTMLDivElement;
+  private loginArea: HTMLDivElement;
+  private passwordInput: HTMLInputElement;
+  private loginError: HTMLDivElement;
   private proposedPrompt: HTMLTextAreaElement;
   private editPromptBtn: HTMLButtonElement;
   private successContainer: HTMLDivElement;
@@ -26,6 +31,7 @@ export class Modal {
   private branchSelect: HTMLSelectElement;
   private personaSelect: HTMLSelectElement;
   private refreshReposBtn: HTMLButtonElement;
+  private downloadBtn: HTMLButtonElement;
 
   private isEditingPrompt = false;
   private basePrompt = '';
@@ -45,6 +51,13 @@ export class Modal {
                 </div>
             </div>
             <div class="fw-modal-body">
+                <div id="fw-login-area">
+                    <h3>Authentication Required</h3>
+                    <p>Enter the widget password to continue.</p>
+                    <input type="password" id="fw-password-input" placeholder="Password..." />
+                    <div id="fw-login-error">Invalid password. Please try again.</div>
+                </div>
+
                 <div id="fw-input-area">
                     <img id="fw-screenshot-preview" src="" alt="Screenshot preview" />
                     <textarea id="fw-feedback-text" placeholder="Explain the issue or feedback..."></textarea>
@@ -92,6 +105,7 @@ export class Modal {
                         </div>
                     </div>
 
+                    <button id="fw-download-zip" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%;">Download Feedback as ZIP</button>
                     <div id="fw-success-container"></div>
                 </div>
             </div>
@@ -110,6 +124,10 @@ export class Modal {
     this.previewImg = this.container.querySelector('#fw-screenshot-preview') as HTMLImageElement;
     this.textArea = this.container.querySelector('#fw-feedback-text') as HTMLTextAreaElement;
 
+    this.loginArea = this.container.querySelector('#fw-login-area') as HTMLDivElement;
+    this.passwordInput = this.container.querySelector('#fw-password-input') as HTMLInputElement;
+    this.loginError = this.container.querySelector('#fw-login-error') as HTMLDivElement;
+
     this.inputArea = this.container.querySelector('#fw-input-area') as HTMLDivElement;
     this.loadingArea = this.container.querySelector('#fw-loading-area') as HTMLDivElement;
     this.resultArea = this.container.querySelector('#fw-result-area') as HTMLDivElement;
@@ -120,6 +138,7 @@ export class Modal {
     this.branchSelect = this.container.querySelector('#fw-branch-select') as HTMLSelectElement;
     this.personaSelect = this.container.querySelector('#fw-persona-select') as HTMLSelectElement;
     this.refreshReposBtn = this.container.querySelector('#fw-refresh-sources') as HTMLButtonElement;
+    this.downloadBtn = this.container.querySelector('#fw-download-zip') as HTMLButtonElement;
 
     this.attachEvents();
   }
@@ -129,6 +148,7 @@ export class Modal {
     this.cancelBtn.addEventListener('click', this.callbacks.onClose);
     this.minimizeBtn.addEventListener('click', this.callbacks.onMinimize);
     this.refreshReposBtn.addEventListener('click', this.callbacks.onRefreshSources);
+    this.downloadBtn.addEventListener('click', this.callbacks.onDownload);
 
     this.editPromptBtn.addEventListener('click', () => {
         this.isEditingPrompt = !this.isEditingPrompt;
@@ -152,7 +172,9 @@ export class Modal {
     });
 
     this.submitBtn.addEventListener('click', () => {
-        if (this.submitBtn.innerText === 'Analyze Feedback') {
+        if (this.submitBtn.innerText === 'Login') {
+            this.callbacks.onLogin(this.passwordInput.value);
+        } else if (this.submitBtn.innerText === 'Analyze Feedback') {
             this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
         } else if (this.submitBtn.innerText === 'Send to Jules') {
             this.callbacks.onSubmitSend({
@@ -165,13 +187,32 @@ export class Modal {
     });
   }
 
+  setLoginRequired() {
+    this.container.style.display = 'flex';
+    this.loginArea.style.display = 'flex';
+    this.inputArea.style.display = 'none';
+    this.loadingArea.style.display = 'none';
+    this.resultArea.style.display = 'none';
+    this.submitBtn.innerText = 'Login';
+    this.submitBtn.disabled = false;
+    this.submitBtn.style.display = 'inline-block';
+    this.passwordInput.value = '';
+    this.passwordInput.focus();
+  }
+
+  setLoginError(show: boolean) {
+    this.loginError.style.display = show ? 'block' : 'none';
+  }
+
   setPreviewImage(dataUrl: string) {
     this.previewImg.src = dataUrl;
   }
 
   show() {
     this.container.style.display = 'flex';
-    this.textArea.focus();
+    if (this.loginArea.style.display !== 'flex') {
+        this.textArea.focus();
+    }
   }
 
   hide() {
@@ -193,10 +234,13 @@ export class Modal {
     this.textArea.value = '';
     this.previewImg.src = '';
     this.basePrompt = '';
+    this.passwordInput.value = '';
+    this.loginError.style.display = 'none';
 
     this.container.style.visibility = '';
     this.container.style.pointerEvents = '';
 
+    this.loginArea.style.display = 'none';
     this.inputArea.style.display = 'block';
     this.loadingArea.style.display = 'none';
     this.resultArea.style.display = 'none';
@@ -208,6 +252,7 @@ export class Modal {
     this.cancelBtn.style.display = 'inline-block';
     this.successContainer.innerHTML = '';
   }
+
 
   setLoading() {
     this.submitBtn.disabled = true;

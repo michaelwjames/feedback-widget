@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { config } from '../config';
 import { FeedbackService } from '../services/feedbackService';
 
@@ -60,7 +61,7 @@ export class FeedbackController {
             });
         } catch (error) {
             console.error('Error during feedback analysis:', error);
-            res.status(500).json({ error: 'Failed to analyze feedback with Groq.' });
+            res.status(500).json({ error: 'Failed to analyze feedback with vision provider.' });
         }
     }
 
@@ -77,6 +78,35 @@ export class FeedbackController {
         } catch (error) {
             console.error('Error triggering Jules:', error);
             res.status(500).json({ error: 'Failed to trigger Jules.' });
+        }
+    }
+
+    static async downloadFeedback(req: Request, res: Response) {
+        const feedbackPath = req.query.path as string;
+
+        if (!feedbackPath) {
+            return res.status(400).json({ error: 'Feedback path is required.' });
+        }
+
+        // Security check: ensure path is inside config.feedbackDir
+        const absolutePath = path.resolve(feedbackPath);
+        const feedbackRoot = path.resolve(config.feedbackDir);
+
+        if (!absolutePath.startsWith(feedbackRoot)) {
+            return res.status(403).json({ error: 'Unauthorized path.' });
+        }
+
+        try {
+            const zipStream = await feedbackService.getFeedbackZipStream(absolutePath);
+            const folderName = path.basename(absolutePath);
+
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename=feedback-${folderName}.zip`);
+
+            zipStream.pipe(res);
+        } catch (error: any) {
+            console.error('Error downloading feedback zip:', error);
+            res.status(500).json({ error: error.message || 'Failed to download feedback.' });
         }
     }
 }

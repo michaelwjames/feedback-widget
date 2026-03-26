@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
+import archiver from 'archiver';
 import { config } from '../config';
 import { JulesClient } from '../clients/julesClient';
-import { runGroqAnalysis } from './groqService';
+import { visionService } from './vision';
 
 export class FeedbackService {
     private julesClient: JulesClient;
@@ -94,7 +95,7 @@ export class FeedbackService {
         console.log(`Saved feedback files to ${currentFeedbackDir}. Starting Groq analysis...`);
 
         const promptFilePath = path.join(currentFeedbackDir, 'jules_prompt.json');
-        const promptData = await runGroqAnalysis(mdPath, imagePaths, promptFilePath);
+        const promptData = await visionService.runAnalysis(mdPath, imagePaths, promptFilePath);
 
         return {
             prompt: promptData.prompt_for_jules,
@@ -117,7 +118,7 @@ export class FeedbackService {
             try {
                 const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
                 if (promptData.prompt_for_jules) {
-                    promptData.prompt_for_jules = `You are the ${persona}. ${promptData.prompt_for_jules}`;
+                    promptData.prompt_for_jules = `You are the ${persona}. Read AGENTS.md first. ${promptData.prompt_for_jules}`;
                     fs.writeFileSync(promptFilePath, JSON.stringify(promptData, null, 2), 'utf8');
                     console.log(`[AGENT WORKFLOW] Prepended persona '${persona}' to Jules prompt.`);
                 }
@@ -144,9 +145,6 @@ export class FeedbackService {
             throw new Error("No target repository selected. Please select a repository before sending to Jules.");
         }
 
-        // We run createSession asynchronously (without waiting for completion if we don't want to block, but in original script it spawned and continued)
-        // Original script: exec("jules_client.py ... --no-poll", callback)
-        // So we just call it and return success immediately
         this.julesClient.createSession(
             promptForJules,
             undefined, // title
@@ -161,5 +159,17 @@ export class FeedbackService {
         });
 
         return { message: 'Session creation triggered with Jules.' };
+    }
+
+    async getFeedbackZipStream(dirPath: string): Promise<any> {
+        if (!fs.existsSync(dirPath)) {
+            throw new Error('Feedback directory not found.');
+        }
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.directory(dirPath, false);
+        archive.finalize();
+
+        return archive;
     }
 }
