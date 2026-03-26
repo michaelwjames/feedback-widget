@@ -497,7 +497,7 @@
                     <img id="fw-screenshot-preview" src="" alt="Screenshot preview" />
                     <textarea id="fw-feedback-text" placeholder="Explain the issue or feedback..."></textarea>
                 </div>
-                
+
                 <div id="fw-loading-area">
                     <div class="fw-spinner"></div>
                     <div id="fw-loading-text">Groq is analyzing your feedback...</div>
@@ -511,7 +511,7 @@
                         </button>
                     </div>
                     <textarea id="fw-proposed-prompt" readonly></textarea>
-                    
+
                     <div class="fw-field-group">
                         <label class="fw-field-label">Target Repository</label>
                         <div class="fw-input-container">
@@ -830,6 +830,7 @@
         }
         console.log("[FEEDBACK-WIDGET] Starting screenshot capture with html-to-image...");
         const capturingToast = document.createElement("div");
+        capturingToast.id = "fw-capturing-toast";
         capturingToast.innerText = "Capturing...";
         capturingToast.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999999;";
         document.body.appendChild(capturingToast);

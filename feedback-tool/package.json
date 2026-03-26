@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "node build.js",
-    "pretest": "npm run build",
+    "pretest": "pnpm run build",
     "test": "jest"
   },
   "dependencies": {
