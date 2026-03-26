@@ -67,6 +67,14 @@ export class FeedbackService {
             markdownContent += `- **User Agent:** \`${metadata.userAgent || 'N/A'}\`\n`;
             markdownContent += `- **Resolution:** ${metadata.screenResolution || 'N/A'} (Window: ${metadata.windowSize || 'N/A'})\n`;
             markdownContent += `- **Timestamp:** ${metadata.timestamp || 'N/A'}\n\n`;
+
+            if (metadata.comments && metadata.comments.length > 0) {
+                markdownContent += `## Comments\n\n`;
+                metadata.comments.forEach((comment: any) => {
+                    markdownContent += `${comment.number}. **${comment.text}** (x: ${comment.x}, y: ${comment.y})\n`;
+                });
+                markdownContent += `\n`;
+            }
         }
 
         let imagePaths: string[] = [];
@@ -132,12 +140,8 @@ export class FeedbackService {
         const resolvedBranch = branch || config.julesDefaultBranch || "dev";
         let resolvedSourceId = sourceId;
 
-        if (!resolvedSourceId && config.julesDefaultRepo) {
-             try {
-                resolvedSourceId = await this.julesClient.getSourceId(config.julesDefaultRepo);
-             } catch (error) {
-                console.error("Failed to resolve default repo source id:", error);
-             }
+        if (!resolvedSourceId) {
+            throw new Error("No target repository selected. Please select a repository before sending to Jules.");
         }
 
         // We run createSession asynchronously (without waiting for completion if we don't want to block, but in original script it spawned and continued)

@@ -1,0 +1,27 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Test Page</title>
+        <link rel="stylesheet" href="feedback-widget.css">
+        <style>
+            body { font-family: sans-serif; padding: 20px; }
+            .test-content { width: 400px; height: 300px; background: #f0f0f0; border: 1px solid #ccc; margin-top: 20px; display: flex; align-items: center; justify-content: center; }
+        </style>
+    </head>
+    <body>
+        <h1>Feedback Widget Test</h1>
+        <p>This is a test page to verify the refactored widget.</p>
+        <div class="test-content">
+            Sample Content to Screenshot
+        </div>
+
+        <script>
+            window.FEEDBACK_WIDGET_CONFIG = {
+                endpoint: 'http://localhost:12345/api/feedback'
+            };
+        </script>
+        <script src="feedback-widget.js"></script>
+    </body>
+    </html>

@@ -2,8 +2,10 @@
   "compilerOptions": {
     "target": "es2022",
     "module": "commonjs",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "rootDir": "./",
     "outDir": "./dist",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
