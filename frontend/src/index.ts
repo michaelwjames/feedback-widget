@@ -5,7 +5,7 @@ import { Overlay, RectParams } from './ui/Overlay';
 import { CommentOverlay } from './ui/CommentOverlay';
 import { Modal } from './ui/Modal';
 import { ScreenshotUtil } from './utils/screenshot';
-import { Config, FeedbackPayload, JulesPayload } from './types';
+import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
 
 (function () {
   // Read config
@@ -119,14 +119,25 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
       };
 
       try {
-        const data = await api.analyzeFeedback(payload);
-        if (data.error) throw new Error(data.error);
+        // Step 1: Save the feedback files
+        const saveData = await api.saveFeedback(payload);
+        if (saveData.error) throw new Error(saveData.error);
 
-        currentFeedbackDir = data.feedbackDir || null;
-        modal.setResult(data.prompt || '');
-      } catch (err) {
-        console.error("Analysis failed:", err);
-        alert("Analysis failed. See console.");
+        currentFeedbackDir = saveData.feedbackDir;
+
+        // Step 2: Trigger vision analysis using the saved path
+        const visionData = await api.runVisionAnalysis({
+            mdFilePath: saveData.mdPath,
+            imagePaths: saveData.imagePaths,
+            outputPath: saveData.outputPath
+        });
+
+        if (visionData.error) throw new Error(visionData.error);
+        
+        modal.setResult(visionData.agent_prompt || '');
+      } catch (err: any) {
+        console.error("Submission or analysis failed:", err);
+        modal.setError(err.message || "Operation failed.");
         modal.setFailed(true);
       }
     },
@@ -142,11 +153,28 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
       };
 
       try {
-        await api.sendToJules(julesPayload);
+        await api.sendToProcessor('jules', julesPayload);
         modal.setSuccess();
-      } catch (err) {
+      } catch (err: any) {
         console.error("Jules trigger failed:", err);
-        alert("Failed to trigger Jules.");
+        modal.setError(err.message || "Failed to trigger Jules.");
+        modal.setFailed(false);
+      }
+    },
+    onSubmitLinear: async (payload: { feedbackDir: string, title?: string }) => {
+      if (!currentFeedbackDir) return;
+
+      modal.setSending();
+
+      try {
+        await api.sendToProcessor('linear', {
+          feedbackDir: currentFeedbackDir,
+          title: payload.title
+        });
+        modal.setLinearSuccess();
+      } catch (err: any) {
+        console.error("Linear trigger failed:", err);
+        modal.setError(err.message || "Failed to create Linear issue.");
         modal.setFailed(false);
       }
     },
@@ -184,10 +212,10 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
   // Fetch data once on load to warm cache
   async function initData() {
     try {
-      const defaults = await api.fetchDefaults();
+      const defaults = await api.fetchDefaults('jules');
       modal.setConfigDefaults(defaults);
 
-      fetchSources();
+      fetchSources(false);
       fetchPersonas();
     } catch (err) {
       console.error("Failed to init defaults:", err);
@@ -197,7 +225,7 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
   async function fetchSources(refresh: boolean = false) {
     modal.setRefreshSpinning(true);
     try {
-      const data = await api.fetchSources(refresh);
+      const data = await api.fetchSources('jules', refresh);
       modal.setSources(data.sources || []);
     } catch (err) {
       console.error("Failed to fetch sources:", err);
@@ -209,7 +237,7 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
 
   async function fetchPersonas() {
     try {
-      const data = await api.fetchPersonas();
+      const data = await api.fetchPersonas('jules');
       modal.setPersonas(data.personas || []);
     } catch (err) {
       console.error("Failed to fetch personas:", err);

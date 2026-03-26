@@ -1,11 +1,13 @@
 import {
   Config,
   FeedbackPayload,
-  FeedbackResponse,
-  JulesPayload,
   SourcesResponse,
   PersonasResponse,
-  DefaultsResponse
+  DefaultsResponse,
+  ProcessorPayload,
+  SaveFeedbackResponse,
+  VisionAnalysisPayload,
+  VisionAnalysisResult
 } from './types';
 
 export class APIClient {
@@ -15,6 +17,26 @@ export class APIClient {
   constructor(config: Config) {
     this.config = config;
     this.baseUrl = config.endpoint.split('/api/feedback')[0];
+  }
+
+  private async get(path: string): Promise<any> {
+    const res = await fetch(`${this.baseUrl}${path}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    return res.json();
+  }
+
+  private async post(path: string, body: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    return res.json();
   }
 
   async checkAuth(): Promise<boolean> {
@@ -40,43 +62,27 @@ export class APIClient {
     }
   }
 
-  async fetchDefaults(): Promise<DefaultsResponse> {
-    const res = await fetch(`${this.baseUrl}/api/jules/defaults`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    return res.json();
+  async fetchDefaults(processor: string): Promise<DefaultsResponse> {
+    return this.get(`/api/${processor}/defaults`);
   }
 
-  async fetchSources(refresh: boolean = false): Promise<SourcesResponse> {
-    const url = `${this.baseUrl}/api/jules/sources${refresh ? '?refresh=true' : ''}`;
-    const res = await fetch(url, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    return res.json();
+  async fetchSources(processor: string, refresh: boolean = false): Promise<SourcesResponse> {
+    return this.get(`/api/${processor}/sources${refresh ? '?refresh=true' : ''}`);
   }
 
-  async fetchPersonas(): Promise<PersonasResponse> {
-    const res = await fetch(`${this.baseUrl}/api/jules/personas`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    return res.json();
+  async fetchPersonas(processor: string): Promise<PersonasResponse> {
+    return this.get(`/api/${processor}/personas`);
   }
 
-  async analyzeFeedback(payload: FeedbackPayload): Promise<FeedbackResponse> {
-    const res = await fetch(this.config.endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'include'
-    });
-    return res.json();
+  async saveFeedback(payload: FeedbackPayload): Promise<SaveFeedbackResponse> {
+    return this.post('/api/feedback', payload);
   }
 
-  async sendToJules(payload: JulesPayload): Promise<any> {
-    const res = await fetch(`${this.baseUrl}/api/send-to-jules`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'include'
-    });
-    return res.json();
+  async runVisionAnalysis(payload: VisionAnalysisPayload): Promise<VisionAnalysisResult> {
+    return this.post('/api/vision/analyze', payload);
+  }
+
+  async sendToProcessor(processor: string, payload: ProcessorPayload): Promise<any> {
+    return this.post(`/api/send-to/${processor}`, payload);
   }
 }
-

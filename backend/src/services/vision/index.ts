@@ -1,8 +1,7 @@
-import { config } from '../../config';
-import { VisionProvider } from './interface';
+import { VisionProvider } from './visionProvider';
 import { GroqVisionProvider } from './groqProvider';
 
-export * from './interface';
+export * from './visionProvider';
 
 export function getVisionProvider(): VisionProvider {
     const provider = process.env.VISION_PROVIDER || 'groq';

@@ -32,6 +32,28 @@
       this.config = config;
       this.baseUrl = config.endpoint.split("/api/feedback")[0];
     }
+    get(path) {
+      return __async(this, null, function* () {
+        const res = yield fetch(`${this.baseUrl}${path}`, { credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      });
+    }
+    post(path, body) {
+      return __async(this, null, function* () {
+        const res = yield fetch(`${this.baseUrl}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          credentials: "include"
+        });
+        if (!res.ok) {
+          const errorData = yield res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      });
+    }
     checkAuth() {
       return __async(this, null, function* () {
         try {
@@ -57,48 +79,34 @@
         }
       });
     }
-    fetchDefaults() {
+    fetchDefaults(processor) {
       return __async(this, null, function* () {
-        const res = yield fetch(`${this.baseUrl}/api/jules/defaults`, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
+        return this.get(`/api/${processor}/defaults`);
       });
     }
-    fetchSources(refresh = false) {
+    fetchSources(processor, refresh = false) {
       return __async(this, null, function* () {
-        const url = `${this.baseUrl}/api/jules/sources${refresh ? "?refresh=true" : ""}`;
-        const res = yield fetch(url, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
+        return this.get(`/api/${processor}/sources${refresh ? "?refresh=true" : ""}`);
       });
     }
-    fetchPersonas() {
+    fetchPersonas(processor) {
       return __async(this, null, function* () {
-        const res = yield fetch(`${this.baseUrl}/api/jules/personas`, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
+        return this.get(`/api/${processor}/personas`);
       });
     }
-    analyzeFeedback(payload) {
+    saveFeedback(payload) {
       return __async(this, null, function* () {
-        const res = yield fetch(this.config.endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          credentials: "include"
-        });
-        return res.json();
+        return this.post("/api/feedback", payload);
       });
     }
-    sendToJules(payload) {
+    runVisionAnalysis(payload) {
       return __async(this, null, function* () {
-        const res = yield fetch(`${this.baseUrl}/api/send-to-jules`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          credentials: "include"
-        });
-        return res.json();
+        return this.post("/api/vision/analyze", payload);
+      });
+    }
+    sendToProcessor(processor, payload) {
+      return __async(this, null, function* () {
+        return this.post(`/api/send-to/${processor}`, payload);
       });
     }
   };
@@ -544,6 +552,7 @@
       __publicField(this, "personaSelect");
       __publicField(this, "refreshReposBtn");
       __publicField(this, "downloadBtn");
+      __publicField(this, "sendLinearBtn");
       __publicField(this, "isEditingPrompt", false);
       __publicField(this, "basePrompt", "");
       __publicField(this, "availableSources", []);
@@ -574,12 +583,12 @@
 
                 <div id="fw-loading-area">
                     <div class="fw-spinner"></div>
-                    <div id="fw-loading-text">Groq is analyzing your feedback...</div>
+                    <div id="fw-loading-text">AI is analyzing your feedback...</div>
                 </div>
 
                 <div id="fw-result-area">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <div style="font-size: 14px; color: #4a5568; font-weight: bold;">Proposed Prompt for Jules:</div>
+                        <div style="font-size: 14px; color: #4a5568; font-weight: bold;">Proposed Agent Prompt:</div>
                         <button id="fw-edit-prompt" class="fw-icon-btn" title="Edit prompt">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
@@ -615,6 +624,10 @@
                     </div>
 
                     <button id="fw-download-zip" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%;">Download Feedback as ZIP</button>
+                    <button id="fw-send-to-linear" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg>
+                      Send to Linear
+                    </button>
                     <div id="fw-success-container"></div>
                 </div>
             </div>
@@ -645,6 +658,7 @@
       this.personaSelect = this.container.querySelector("#fw-persona-select");
       this.refreshReposBtn = this.container.querySelector("#fw-refresh-sources");
       this.downloadBtn = this.container.querySelector("#fw-download-zip");
+      this.sendLinearBtn = this.container.querySelector("#fw-send-to-linear");
       this.attachEvents();
     }
     attachEvents() {
@@ -653,6 +667,14 @@
       this.minimizeBtn.addEventListener("click", this.callbacks.onMinimize);
       this.refreshReposBtn.addEventListener("click", this.callbacks.onRefreshSources);
       this.downloadBtn.addEventListener("click", this.callbacks.onDownload);
+      this.sendLinearBtn.addEventListener("click", () => {
+        this.callbacks.onSubmitLinear({
+          feedbackDir: "",
+          // This will be handled in index.ts
+          title: ""
+          // Could add a field for title if needed
+        });
+      });
       this.editPromptBtn.addEventListener("click", () => {
         this.isEditingPrompt = !this.isEditingPrompt;
         this.proposedPrompt.readOnly = !this.isEditingPrompt;
@@ -748,7 +770,15 @@
       this.cancelBtn.style.display = "none";
     }
     setResult(prompt) {
-      this.basePrompt = prompt;
+      if (typeof prompt === "object" && prompt !== null) {
+        this.basePrompt = `### CONTEXT
+${prompt.CONTEXT || ""}
+
+### INSTRUCTIONS
+${prompt.INSTRUCTIONS || ""}`;
+      } else {
+        this.basePrompt = prompt;
+      }
       this.updatePromptPreview();
       this.loadingArea.style.display = "none";
       this.resultArea.style.display = "flex";
@@ -765,12 +795,27 @@
       this.submitBtn.style.display = "none";
       this.cancelBtn.innerText = "Close";
     }
+    setLinearSuccess() {
+      this.successContainer.innerHTML = '<div class="fw-success-msg">Success! Linear issue created.</div>';
+      this.submitBtn.style.display = "none";
+      this.sendLinearBtn.style.display = "none";
+      this.cancelBtn.innerText = "Close";
+    }
     setFailed(isAnalyze) {
       if (isAnalyze) {
         this.reset();
       } else {
-        this.submitBtn.innerText = "Send to Jules";
+        const isJules = this.submitBtn.innerText.includes("Jules") || this.submitBtn.innerText === "Sending...";
+        this.submitBtn.innerText = isJules ? "Send to Jules" : "Analyze Feedback";
         this.submitBtn.disabled = false;
+      }
+    }
+    setError(message) {
+      this.successContainer.innerHTML = `<div class="fw-error-msg">${message}</div>`;
+      this.submitBtn.disabled = false;
+      const isSending = this.submitBtn.innerText === "Sending...";
+      if (isSending) {
+        this.submitBtn.innerText = "Send to Jules";
       }
     }
     setRefreshSpinning(spinning) {
@@ -1098,13 +1143,19 @@
           metadata
         };
         try {
-          const data = yield api.analyzeFeedback(payload);
-          if (data.error) throw new Error(data.error);
-          currentFeedbackDir = data.feedbackDir || null;
-          modal.setResult(data.prompt || "");
+          const saveData = yield api.saveFeedback(payload);
+          if (saveData.error) throw new Error(saveData.error);
+          currentFeedbackDir = saveData.feedbackDir;
+          const visionData = yield api.runVisionAnalysis({
+            mdFilePath: saveData.mdPath,
+            imagePaths: saveData.imagePaths,
+            outputPath: saveData.outputPath
+          });
+          if (visionData.error) throw new Error(visionData.error);
+          modal.setResult(visionData.agent_prompt || "");
         } catch (err) {
-          console.error("Analysis failed:", err);
-          alert("Analysis failed. See console.");
+          console.error("Submission or analysis failed:", err);
+          modal.setError(err.message || "Operation failed.");
           modal.setFailed(true);
         }
       }),
@@ -1118,11 +1169,26 @@
           prompt: payload.prompt
         };
         try {
-          yield api.sendToJules(julesPayload);
+          yield api.sendToProcessor("jules", julesPayload);
           modal.setSuccess();
         } catch (err) {
           console.error("Jules trigger failed:", err);
-          alert("Failed to trigger Jules.");
+          modal.setError(err.message || "Failed to trigger Jules.");
+          modal.setFailed(false);
+        }
+      }),
+      onSubmitLinear: (payload) => __async(null, null, function* () {
+        if (!currentFeedbackDir) return;
+        modal.setSending();
+        try {
+          yield api.sendToProcessor("linear", {
+            feedbackDir: currentFeedbackDir,
+            title: payload.title
+          });
+          modal.setLinearSuccess();
+        } catch (err) {
+          console.error("Linear trigger failed:", err);
+          modal.setError(err.message || "Failed to create Linear issue.");
           modal.setFailed(false);
         }
       }),
@@ -1153,9 +1219,9 @@
     function initData() {
       return __async(this, null, function* () {
         try {
-          const defaults = yield api.fetchDefaults();
+          const defaults = yield api.fetchDefaults("jules");
           modal.setConfigDefaults(defaults);
-          fetchSources();
+          fetchSources(false);
           fetchPersonas();
         } catch (err) {
           console.error("Failed to init defaults:", err);
@@ -1166,7 +1232,7 @@
       return __async(this, null, function* () {
         modal.setRefreshSpinning(true);
         try {
-          const data = yield api.fetchSources(refresh);
+          const data = yield api.fetchSources("jules", refresh);
           modal.setSources(data.sources || []);
         } catch (err) {
           console.error("Failed to fetch sources:", err);
@@ -1179,7 +1245,7 @@
     function fetchPersonas() {
       return __async(this, null, function* () {
         try {
-          const data = yield api.fetchPersonas();
+          const data = yield api.fetchPersonas("jules");
           modal.setPersonas(data.personas || []);
         } catch (err) {
           console.error("Failed to fetch personas:", err);

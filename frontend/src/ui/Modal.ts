@@ -5,6 +5,7 @@ export interface ModalCallbacks {
   onMinimize: () => void;
   onSubmitAnalyze: (text: string, screenshotUrl: string) => void;
   onSubmitSend: (payload: { sourceId: string; branch: string; persona: string; prompt: string }) => void;
+  onSubmitLinear: (payload: { feedbackDir: string, title?: string }) => void;
   onRefreshSources: () => void;
   onLogin: (password: string) => void;
   onDownload: () => void;
@@ -32,6 +33,7 @@ export class Modal {
   private personaSelect: HTMLSelectElement;
   private refreshReposBtn: HTMLButtonElement;
   private downloadBtn: HTMLButtonElement;
+  private sendLinearBtn: HTMLButtonElement;
 
   private isEditingPrompt = false;
   private basePrompt = '';
@@ -65,12 +67,12 @@ export class Modal {
 
                 <div id="fw-loading-area">
                     <div class="fw-spinner"></div>
-                    <div id="fw-loading-text">Groq is analyzing your feedback...</div>
+                    <div id="fw-loading-text">AI is analyzing your feedback...</div>
                 </div>
 
                 <div id="fw-result-area">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <div style="font-size: 14px; color: #4a5568; font-weight: bold;">Proposed Prompt for Jules:</div>
+                        <div style="font-size: 14px; color: #4a5568; font-weight: bold;">Proposed Agent Prompt:</div>
                         <button id="fw-edit-prompt" class="fw-icon-btn" title="Edit prompt">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
@@ -106,6 +108,10 @@ export class Modal {
                     </div>
 
                     <button id="fw-download-zip" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%;">Download Feedback as ZIP</button>
+                    <button id="fw-send-to-linear" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg>
+                      Send to Linear
+                    </button>
                     <div id="fw-success-container"></div>
                 </div>
             </div>
@@ -139,6 +145,7 @@ export class Modal {
     this.personaSelect = this.container.querySelector('#fw-persona-select') as HTMLSelectElement;
     this.refreshReposBtn = this.container.querySelector('#fw-refresh-sources') as HTMLButtonElement;
     this.downloadBtn = this.container.querySelector('#fw-download-zip') as HTMLButtonElement;
+    this.sendLinearBtn = this.container.querySelector('#fw-send-to-linear') as HTMLButtonElement;
 
     this.attachEvents();
   }
@@ -149,41 +156,47 @@ export class Modal {
     this.minimizeBtn.addEventListener('click', this.callbacks.onMinimize);
     this.refreshReposBtn.addEventListener('click', this.callbacks.onRefreshSources);
     this.downloadBtn.addEventListener('click', this.callbacks.onDownload);
+    this.sendLinearBtn.addEventListener('click', () => {
+      this.callbacks.onSubmitLinear({
+        feedbackDir: '', // This will be handled in index.ts
+        title: '' // Could add a field for title if needed
+      });
+    });
 
     this.editPromptBtn.addEventListener('click', () => {
-        this.isEditingPrompt = !this.isEditingPrompt;
-        this.proposedPrompt.readOnly = !this.isEditingPrompt;
-        if (this.isEditingPrompt) {
-            this.proposedPrompt.focus();
-            this.editPromptBtn.classList.add('fw-btn-active');
-        } else {
-            this.editPromptBtn.classList.remove('fw-btn-active');
-        }
+      this.isEditingPrompt = !this.isEditingPrompt;
+      this.proposedPrompt.readOnly = !this.isEditingPrompt;
+      if (this.isEditingPrompt) {
+        this.proposedPrompt.focus();
+        this.editPromptBtn.classList.add('fw-btn-active');
+      } else {
+        this.editPromptBtn.classList.remove('fw-btn-active');
+      }
     });
 
     this.personaSelect.addEventListener('change', () => {
-        if (!this.isEditingPrompt) {
-            this.updatePromptPreview();
-        }
+      if (!this.isEditingPrompt) {
+        this.updatePromptPreview();
+      }
     });
 
     this.repoSelect.addEventListener('change', () => {
-        this.updateBranchOptions();
+      this.updateBranchOptions();
     });
 
     this.submitBtn.addEventListener('click', () => {
-        if (this.submitBtn.innerText === 'Login') {
-            this.callbacks.onLogin(this.passwordInput.value);
-        } else if (this.submitBtn.innerText === 'Analyze Feedback') {
-            this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
-        } else if (this.submitBtn.innerText === 'Send to Jules') {
-            this.callbacks.onSubmitSend({
-                sourceId: this.repoSelect.value,
-                branch: this.branchSelect.value,
-                persona: this.personaSelect.value,
-                prompt: this.proposedPrompt.value
-            });
-        }
+      if (this.submitBtn.innerText === 'Login') {
+        this.callbacks.onLogin(this.passwordInput.value);
+      } else if (this.submitBtn.innerText === 'Analyze Feedback') {
+        this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
+      } else if (this.submitBtn.innerText === 'Send to Jules') {
+        this.callbacks.onSubmitSend({
+          sourceId: this.repoSelect.value,
+          branch: this.branchSelect.value,
+          persona: this.personaSelect.value,
+          prompt: this.proposedPrompt.value
+        });
+      }
     });
   }
 
@@ -211,7 +224,7 @@ export class Modal {
   show() {
     this.container.style.display = 'flex';
     if (this.loginArea.style.display !== 'flex') {
-        this.textArea.focus();
+      this.textArea.focus();
     }
   }
 
@@ -261,8 +274,12 @@ export class Modal {
     this.cancelBtn.style.display = 'none';
   }
 
-  setResult(prompt: string) {
-    this.basePrompt = prompt;
+  setResult(prompt: string | { CONTEXT: string; INSTRUCTIONS: string }) {
+    if (typeof prompt === 'object' && prompt !== null) {
+      this.basePrompt = `### CONTEXT\n${prompt.CONTEXT || ''}\n\n### INSTRUCTIONS\n${prompt.INSTRUCTIONS || ''}`;
+    } else {
+      this.basePrompt = prompt;
+    }
     this.updatePromptPreview();
 
     this.loadingArea.style.display = 'none';
@@ -284,12 +301,30 @@ export class Modal {
     this.cancelBtn.innerText = 'Close';
   }
 
+  setLinearSuccess() {
+    this.successContainer.innerHTML = '<div class="fw-success-msg">Success! Linear issue created.</div>';
+    this.submitBtn.style.display = 'none';
+    this.sendLinearBtn.style.display = 'none';
+    this.cancelBtn.innerText = 'Close';
+  }
+
   setFailed(isAnalyze: boolean) {
     if (isAnalyze) {
       this.reset();
     } else {
-      this.submitBtn.innerText = 'Send to Jules';
+      const isJules = this.submitBtn.innerText.includes('Jules') || this.submitBtn.innerText === 'Sending...';
+      this.submitBtn.innerText = isJules ? 'Send to Jules' : 'Analyze Feedback';
       this.submitBtn.disabled = false;
+    }
+  }
+
+  setError(message: string) {
+    this.successContainer.innerHTML = `<div class="fw-error-msg">${message}</div>`;
+    this.submitBtn.disabled = false;
+    const isSending = this.submitBtn.innerText === 'Sending...';
+    if (isSending) {
+        // Try to guess which button it was
+        this.submitBtn.innerText = 'Send to Jules'; 
     }
   }
 
@@ -313,44 +348,44 @@ export class Modal {
 
     if (this.configDefaults.repos) {
       this.configDefaults.repos.forEach(repoId => {
-          const found = sources.find(s => s.name.replace('sources/', '') === repoId);
-          if (found) defaults.push(found);
+        const found = sources.find(s => s.name.replace('sources/', '') === repoId);
+        if (found) defaults.push(found);
       });
     }
 
     if (this.configDefaults.repos) {
       sources.forEach(s => {
-          const id = s.name.replace('sources/', '');
-          if (!this.configDefaults.repos.includes(id)) {
-              others.push(s);
-          }
+        const id = s.name.replace('sources/', '');
+        if (!this.configDefaults.repos.includes(id)) {
+          others.push(s);
+        }
       });
     } else {
       sources.forEach(s => others.push(s));
     }
 
     others.sort((a, b) => {
-        const idA = a.name.replace('sources/', '');
-        const labelA = a.githubRepo ? `${a.githubRepo.owner}/${a.githubRepo.repo}` : idA;
-        const idB = b.name.replace('sources/', '');
-        const labelB = b.githubRepo ? `${b.githubRepo.owner}/${b.githubRepo.repo}` : idB;
-        return labelA.localeCompare(labelB);
+      const idA = a.name.replace('sources/', '');
+      const labelA = a.githubRepo ? `${a.githubRepo.owner}/${a.githubRepo.repo}` : idA;
+      const idB = b.name.replace('sources/', '');
+      const labelB = b.githubRepo ? `${b.githubRepo.owner}/${b.githubRepo.repo}` : idB;
+      return labelA.localeCompare(labelB);
     });
 
     let html = defaults.map(s => {
-        const id = s.name.replace('sources/', '');
-        const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
-        return `<option value="${id}">${label}</option>`;
+      const id = s.name.replace('sources/', '');
+      const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
+      return `<option value="${id}">${label}</option>`;
     }).join('');
 
     if (defaults.length > 0 && others.length > 0) {
-        html += '<option disabled>──────────</option>';
+      html += '<option disabled>──────────</option>';
     }
 
     html += others.map(s => {
-        const id = s.name.replace('sources/', '');
-        const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
-        return `<option value="${id}">${label}</option>`;
+      const id = s.name.replace('sources/', '');
+      const label = s.githubRepo ? `${s.githubRepo.owner}/${s.githubRepo.repo}` : id;
+      return `<option value="${id}">${label}</option>`;
     }).join('');
 
     this.repoSelect.innerHTML = html;
@@ -367,16 +402,16 @@ export class Modal {
 
     if (this.configDefaults.personas) {
       this.configDefaults.personas.forEach(personaName => {
-          const found = personas.find(p => p === personaName);
-          if (found) defaults.push(found);
+        const found = personas.find(p => p === personaName);
+        if (found) defaults.push(found);
       });
     }
 
     if (this.configDefaults.personas) {
       personas.forEach(p => {
-          if (!this.configDefaults.personas.includes(p)) {
-              others.push(p);
-          }
+        if (!this.configDefaults.personas.includes(p)) {
+          others.push(p);
+        }
       });
     } else {
       personas.forEach(p => others.push(p));
@@ -385,15 +420,15 @@ export class Modal {
     others.sort((a, b) => a.localeCompare(b));
 
     let html = defaults.map(p => {
-        return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+      return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
     }).join('');
 
     if (defaults.length > 0 && others.length > 0) {
-        html += '<option disabled>──────────</option>';
+      html += '<option disabled>──────────</option>';
     }
 
     html += others.map(p => {
-        return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
+      return `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`;
     }).join('');
 
     this.personaSelect.innerHTML = html;
@@ -408,16 +443,16 @@ export class Modal {
     const source = this.availableSources.find(s => s.name.replace('sources/', '') === selectedId);
 
     if (!source || !source.githubRepo) {
-        this.branchSelect.innerHTML = '<option value="dev">dev (default)</option>';
-        return;
+      this.branchSelect.innerHTML = '<option value="dev">dev (default)</option>';
+      return;
     }
 
     const branches = source.githubRepo.branches || [];
     const defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : 'dev';
 
     if (branches.length === 0) {
-        this.branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
-        return;
+      this.branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
+      return;
     }
 
     const defaults: any[] = [];
@@ -425,17 +460,17 @@ export class Modal {
 
     if (this.configDefaults.branches) {
       this.configDefaults.branches.forEach(branchName => {
-          const found = branches.find(b => b.displayName === branchName);
-          if (found) defaults.push(found);
+        const found = branches.find(b => b.displayName === branchName);
+        if (found) defaults.push(found);
       });
     }
 
     if (this.configDefaults.branches) {
       branches.forEach(b => {
-          const name = b.displayName;
-          if (!this.configDefaults.branches.includes(name)) {
-              others.push(b);
-          }
+        const name = b.displayName;
+        if (!this.configDefaults.branches.includes(name)) {
+          others.push(b);
+        }
       });
     } else {
       branches.forEach(b => others.push(b));
@@ -444,17 +479,17 @@ export class Modal {
     others.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
     let html = defaults.map(b => {
-        const name = b.displayName;
-        return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
+      const name = b.displayName;
+      return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
     }).join('');
 
     if (defaults.length > 0 && others.length > 0) {
-        html += '<option disabled>──────────</option>';
+      html += '<option disabled>──────────</option>';
     }
 
     html += others.map(b => {
-        const name = b.displayName;
-        return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
+      const name = b.displayName;
+      return `<option value="${name}" ${name === defaultBranch ? 'selected' : ''}>${name}${name === defaultBranch ? ' (default)' : ''}</option>`;
     }).join('');
 
     this.branchSelect.innerHTML = html;
@@ -463,9 +498,9 @@ export class Modal {
   private updatePromptPreview() {
     const persona = this.personaSelect.value;
     if (persona) {
-        this.proposedPrompt.value = `You are the ${persona}. Read AGENTS.md first. ${this.basePrompt}`;
+      this.proposedPrompt.value = `You are the ${persona}. Read AGENTS.md first. ${this.basePrompt}`;
     } else {
-        this.proposedPrompt.value = this.basePrompt;
+      this.proposedPrompt.value = this.basePrompt;
     }
   }
 }

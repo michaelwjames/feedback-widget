@@ -27,6 +27,26 @@ export interface FeedbackPayload {
   metadata: FeedbackMetadata;
 }
 
+export interface SaveFeedbackResponse {
+    message: string;
+    feedbackDir: string;
+    mdPath: string;
+    imagePaths: string[];
+    outputPath: string;
+    error?: string;
+}
+
+export interface VisionAnalysisPayload {
+    mdFilePath: string;
+    imagePaths: string[];
+    outputPath: string;
+}
+
+export interface VisionAnalysisResult {
+    agent_prompt: string | { CONTEXT: string; INSTRUCTIONS: string };
+    error?: string;
+}
+
 export interface FeedbackResponse {
   error?: string;
   feedbackDir?: string;
@@ -40,6 +60,13 @@ export interface JulesPayload {
   persona: string;
   prompt: string;
 }
+
+export interface LinearPayload {
+  feedbackDir: string;
+  title?: string;
+}
+
+export type ProcessorPayload = JulesPayload | LinearPayload;
 
 export interface GithubBranch {
   displayName: string;

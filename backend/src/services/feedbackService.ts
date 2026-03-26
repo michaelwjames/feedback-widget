@@ -2,59 +2,36 @@ import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 import { config } from '../config';
-import { JulesClient } from '../clients/julesClient';
-import { visionService } from './vision';
+import { FeedbackPayload } from '../types';
+import { FeedbackProcessorFactory } from './feedback_processors/processorFactory';
 
 export class FeedbackService {
-    private julesClient: JulesClient;
+    constructor() { }
 
-    constructor() {
-        this.julesClient = new JulesClient(config.julesApiKey);
-    }
-
-    ensureDefaults(): void {
-        if (!fs.existsSync(config.defaultsFile) && fs.existsSync(config.defaultsExampleFile)) {
-            try {
-                fs.copyFileSync(config.defaultsExampleFile, config.defaultsFile);
-                console.log(`[AGENT WORKFLOW] Generated defaults.json from example.`);
-            } catch (err) {
-                console.error("Failed to generate defaults.json:", err);
-            }
-        }
-    }
-
-    async getJulesSources(forceRefresh: boolean = false): Promise<any> {
-        if (!forceRefresh && fs.existsSync(config.julesCacheFile)) {
-            try {
-                const cacheData = JSON.parse(fs.readFileSync(config.julesCacheFile, 'utf8'));
-                return cacheData;
-            } catch (err) {
-                console.error("Cache read failed, re-fetching:", err);
-            }
-        }
-
+    async getSources(provider: string, forceRefresh: boolean = false): Promise<any> {
         try {
-            console.log(`[AGENT WORKFLOW] Fetching fresh Jules sources...`);
-            const data = await this.julesClient.listSources(50);
+            const processor = FeedbackProcessorFactory.getProcessor(provider);
 
-            fs.writeFileSync(config.julesCacheFile, JSON.stringify(data, null, 2), 'utf8');
-            this.ensureDefaults();
+            if (typeof processor.listSources !== 'function') {
+                return { sources: [] };
+            }
+
+            const data = await processor.listSources(50);
             return data;
         } catch (error) {
-            console.error('Error fetching Jules sources:', error);
-            throw new Error('Failed to fetch Jules sources.');
+            console.error(`Error fetching ${provider} sources:`, error);
+            throw new Error(`Failed to fetch ${provider} sources.`);
         }
     }
 
-    async saveFeedbackAndRunGroq(text: string, screenshot: string | undefined, metadata: any): Promise<{ prompt: string, feedbackDir: string }> {
+    async saveFeedback(text: string, screenshot: string | undefined, metadata: any): Promise<{ feedbackDir: string, mdPath: string, imagePaths: string[] }> {
         const timestamp = Date.now();
         const currentFeedbackDir = path.join(config.feedbackDir, timestamp.toString());
 
         fs.mkdirSync(currentFeedbackDir, { recursive: true });
 
-        if (metadata) {
-            fs.writeFileSync(path.join(currentFeedbackDir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf8');
-        }
+        const enrichedMetadata = { ...(metadata || {}), text };
+        fs.writeFileSync(path.join(currentFeedbackDir, 'metadata.json'), JSON.stringify(enrichedMetadata, null, 2), 'utf8');
 
         let markdownContent = `# Feedback ${new Date(timestamp).toLocaleString()}\n\n`;
         markdownContent += `## Message\n\n${text || 'No text provided.'}\n\n`;
@@ -79,86 +56,69 @@ export class FeedbackService {
         }
 
         let imagePaths: string[] = [];
-        let imagePathForGroq: string = "";
+        let screenshotPath: string = "";
 
         if (screenshot) {
             const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-            imagePathForGroq = path.join(currentFeedbackDir, 'screenshot.png');
-            fs.writeFileSync(imagePathForGroq, base64Data, 'base64');
-            imagePaths.push(imagePathForGroq);
+            screenshotPath = path.join(currentFeedbackDir, 'screenshot.png');
+            fs.writeFileSync(screenshotPath, base64Data, 'base64');
+            imagePaths.push(screenshotPath);
             markdownContent += `## Screenshot\n\n![Screenshot](./screenshot.png)\n`;
         }
 
         const mdPath = path.join(currentFeedbackDir, 'feedback.md');
         fs.writeFileSync(mdPath, markdownContent, 'utf8');
 
-        console.log(`Saved feedback files to ${currentFeedbackDir}. Starting Groq analysis...`);
-
-        const promptFilePath = path.join(currentFeedbackDir, 'jules_prompt.json');
-        const promptData = await visionService.runAnalysis(mdPath, imagePaths, promptFilePath);
+        console.log(`Saved feedback files to ${currentFeedbackDir}.`);
 
         return {
-            prompt: promptData.prompt_for_jules,
-            feedbackDir: currentFeedbackDir
+            feedbackDir: currentFeedbackDir,
+            mdPath,
+            imagePaths
         };
     }
 
-    async triggerJules(feedbackDir: string, sourceId: string | undefined, branch: string | undefined, persona: string | undefined, customPrompt: string | undefined): Promise<any> {
-        const promptFilePath = path.join(feedbackDir, 'jules_prompt.json');
+    async triggerProcessor(provider: string, feedbackDir: string, options: any): Promise<any> {
+        console.log(`[AGENT WORKFLOW] Triggering ${provider} for ${feedbackDir}`);
 
-        if (customPrompt) {
-            try {
-                const promptData = { prompt_for_jules: customPrompt };
-                fs.writeFileSync(promptFilePath, JSON.stringify(promptData, null, 2), 'utf8');
-                console.log(`[AGENT WORKFLOW] Used custom prompt provided by user.`);
-            } catch (err) {
-                console.error("Failed to save custom prompt:", err);
-            }
-        } else if (persona) {
-            try {
-                const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
-                if (promptData.prompt_for_jules) {
-                    promptData.prompt_for_jules = `You are the ${persona}. Read AGENTS.md first. ${promptData.prompt_for_jules}`;
-                    fs.writeFileSync(promptFilePath, JSON.stringify(promptData, null, 2), 'utf8');
-                    console.log(`[AGENT WORKFLOW] Prepended persona '${persona}' to Jules prompt.`);
-                }
-            } catch (err) {
-                console.error("Failed to update prompt with persona:", err);
-            }
-        }
+        const metadataPath = path.join(feedbackDir, 'metadata.json');
+        const promptFilePath = path.join(feedbackDir, 'agent_prompt.json');
+        const screenshotPath = path.join(feedbackDir, 'screenshot.png');
 
-        console.log(`[AGENT WORKFLOW] Triggering Jules for ${feedbackDir} on ${sourceId || 'default repo'} branch ${branch || 'default branch'}`);
+        let metadata = {};
+        let promptFromAnalysis = "";
+        let screenshotBase64 = "";
 
-        let promptForJules = "";
         try {
-            const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
-            promptForJules = promptData.prompt_for_jules;
+            if (fs.existsSync(metadataPath)) {
+                metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            }
+            if (fs.existsSync(promptFilePath)) {
+                const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+                promptFromAnalysis = promptData.agent_prompt;
+            }
+            if (fs.existsSync(screenshotPath)) {
+                screenshotBase64 = `data:image/png;base64,${fs.readFileSync(screenshotPath, { encoding: 'base64' })}`;
+            }
         } catch (err) {
-            console.error("Failed to read prompt file:", err);
-            throw new Error("Cannot trigger Jules without a valid prompt.");
+            console.error("Failed to read feedback files:", err);
+            throw new Error(`Cannot trigger ${provider} without valid feedback files.`);
         }
 
-        const resolvedBranch = branch || config.julesDefaultBranch || "dev";
-        let resolvedSourceId = sourceId;
+        const feedbackPayload: FeedbackPayload = {
+            text: (metadata as any).text || "No text provided",
+            screenshot: screenshotBase64,
+            metadata: metadata as any
+        };
 
-        if (!resolvedSourceId) {
-            throw new Error("No target repository selected. Please select a repository before sending to Jules.");
-        }
+        const processor = FeedbackProcessorFactory.getProcessor(provider);
 
-        this.julesClient.createSession(
-            promptForJules,
-            undefined, // title
-            resolvedSourceId,
-            resolvedBranch,
-            false, // requirePlanApproval
-            "AUTO_CREATE_PR" // automationMode
-        ).then((session) => {
-            console.log(`[AGENT WORKFLOW] Jules Session Created: ${session?.name || 'unknown'}`);
-        }).catch((err) => {
-            console.error(`[AGENT WORKFLOW] Jules Error: ${err.message}`);
-        });
+        const mergedOptions = {
+            prompt: options.prompt || promptFromAnalysis,
+            ...options
+        };
 
-        return { message: 'Session creation triggered with Jules.' };
+        return processor.process(feedbackPayload, mergedOptions);
     }
 
     async getFeedbackZipStream(dirPath: string): Promise<any> {

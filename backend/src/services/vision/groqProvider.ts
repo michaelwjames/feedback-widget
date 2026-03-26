@@ -1,24 +1,23 @@
 import fs from 'fs';
-import path from 'path';
 import Groq from 'groq-sdk';
 import { config } from '../../config';
-import { VisionProvider, VisionAnalysisResult } from './interface';
+import { VisionAnalysisResult, VisionProvider } from './visionProvider';
 
 const DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const SYSTEM_PROMPT = (
     "You are an expert web development assistant. You will be provided with a screenshot of a user's web page where they have given feedback, " +
     "along with frontend data and context in markdown format. " +
-    "Create a highly structured prompt that will be sent to another AI agent (Jules) to fix this issue. " +
-    "Your response MUST be a JSON object with a 'prompt_for_jules' field. " +
-    "The 'prompt_for_jules' string should follow this specific format:\n\n" +
+    "Create a highly structured prompt that will be sent to another AI agent to fix this issue. " +
+    "Your response MUST be a JSON object with an 'agent_prompt' field. " +
+    "The 'agent_prompt' string should follow this specific format:\n\n" +
     "### CONTEXT\n" +
     "- Include relevant page metadata (URL, resolution, user agent, etc.)\n" +
     "- Describe what's seen in the screenshot and the user's specific feedback or markers.\n\n" +
     "### INSTRUCTIONS\n" +
-    "- Direct and specific technical instructions for Jules to resolve the issue."
+    "- Direct and specific technical instructions for the agent to resolve the issue."
 );
 
-export class GroqVisionProvider extends BaseVisionProvider {
+export class GroqVisionProvider extends VisionProvider {
     async runAnalysis(mdFilePath: string, imagePaths: string[], outputPath: string): Promise<VisionAnalysisResult> {
         try {
             if (!fs.existsSync(mdFilePath)) {
@@ -34,7 +33,7 @@ export class GroqVisionProvider extends BaseVisionProvider {
             }
 
             const result = await this.callGroq(prompt, contents);
-
+            
             this.writeJson(outputPath, result);
 
             return result;

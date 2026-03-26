@@ -298,6 +298,12 @@
     margin-top: 10px;
 }
 
+.fw-error-msg {
+    color: #e53e3e;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
 /* --- Repo Selection Styles --- */
 .fw-field-group {
     margin-top: 15px;

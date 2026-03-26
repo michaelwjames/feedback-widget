@@ -27,6 +27,13 @@ export interface FeedbackPayload {
   metadata: FeedbackMetadata;
 }
 
+export interface FeedbackProcessor {
+  process(feedback: FeedbackPayload, options?: any): Promise<any>;
+  listSources?(pageSize?: number, pageToken?: string): Promise<any>;
+  listPersonas?(): Promise<any>;
+  getDefaults?(): Promise<any>;
+}
+
 export interface FeedbackResponse {
   error?: string;
   feedbackDir?: string;
