@@ -3,9 +3,10 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+const execFilePromise = util.promisify(execFile);
 
 const app = express();
 const PORT = process.env.PORT || 12345;
@@ -71,10 +72,10 @@ app.get('/api/jules/sources', async (req, res) => {
 
     try {
         const julesScript = path.join(__dirname, '..', 'agents', 'jules-subagent', 'jules_client.py');
-        const julesCmd = `python3 "${julesScript}" list-sources --page-size 50`;
+        const julesCmdArgs = [julesScript, 'list-sources', '--page-size', '50'];
 
         console.log(`[AGENT WORKFLOW] Fetching fresh Jules sources...`);
-        const { stdout } = await execPromise(julesCmd);
+        const { stdout } = await execFilePromise('python3', julesCmdArgs);
         const data = JSON.parse(stdout);
 
         fs.writeFileSync(JULES_CACHE_FILE, JSON.stringify(data, null, 2), 'utf8');
@@ -172,6 +173,12 @@ app.post('/api/send-to-jules', async (req, res) => {
         return res.status(400).json({ error: 'Feedback directory path is required.' });
     }
 
+    // Security enhancement: Prevent Path Traversal
+    const normalizedFeedbackDir = path.resolve(feedbackDir);
+    if (!normalizedFeedbackDir.startsWith(FEEDBACK_DIR + path.sep)) {
+        return res.status(403).json({ error: 'Invalid feedback directory.' });
+    }
+
     try {
         const julesScript = path.join(__dirname, '..', 'agents', 'jules-subagent', 'jules_client.py');
         const promptFilePath = path.join(feedbackDir, 'jules_prompt.json');
@@ -203,15 +210,15 @@ app.post('/api/send-to-jules', async (req, res) => {
         console.log(`[AGENT WORKFLOW] Triggering Jules for ${feedbackDir} on ${sourceId || 'default repo'} branch ${branch || 'default branch'}`);
 
         // Build command with custom repo/branch
-        let julesCmd = `python3 "${julesScript}" create --prompt-file "${promptFilePath}" --auto-pr --no-poll`;
+        const julesArgs = [julesScript, 'create', '--prompt-file', promptFilePath, '--auto-pr', '--no-poll'];
         if (sourceId) {
-            julesCmd += ` --repo "${sourceId}"`;
+            julesArgs.push('--repo', sourceId);
         }
         if (branch) {
-            julesCmd += ` --branch "${branch}"`;
+            julesArgs.push('--branch', branch);
         }
 
-        exec(julesCmd, (jError, jStdout, jStderr) => {
+        execFile('python3', julesArgs, (jError, jStdout, jStderr) => {
             if (jError) {
                 console.error(`[AGENT WORKFLOW] Jules Error: ${jError.message}`);
                 return;
@@ -233,10 +240,10 @@ async function runGroqAnalysis(feedbackDir, imagePath, mdPath) {
     console.log(`[AGENT WORKFLOW] Running Groq analysis for ${feedbackDir}...`);
 
     // Step 1: Groq Vision OCR Analysis
-    const groqCmd = `python3 "${groqScript}" --images "${imagePath}" --md-file "${mdPath}" --output "${promptFilePath}"`;
+    const groqCmdArgs = [groqScript, '--images', imagePath, '--md-file', mdPath, '--output', promptFilePath];
 
     try {
-        const { stdout } = await execPromise(groqCmd);
+        const { stdout } = await execFilePromise('python3', groqCmdArgs);
         console.log(`[AGENT WORKFLOW] Groq OCR Completed: ${stdout.trim()}`);
 
         // Read the resulting JSON file

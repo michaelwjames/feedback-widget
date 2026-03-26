@@ -1,0 +1,4 @@
+## 2024-03-26 - Fix Command Injection and Path Traversal in Feedback Server
+**Vulnerability:** Found critical Command Injection vulnerabilities in `feedback-tool/server.js` where user input (`sourceId`, `branch`) was concatenated directly into bash commands using `exec()`. Additionally, a Path Traversal vulnerability existed because `feedbackDir` wasn't validated, allowing files to be written or read anywhere on the file system.
+**Learning:** Node.js `child_process.exec()` is dangerous when mixed with user input since it runs via a shell. The backend server acts as an orchestrator for local Python scripts, so string concatenation for commands is inherently risky.
+**Prevention:** Use `child_process.execFile()` with an arguments array to avoid shell interpretation. Validate user-provided directory paths using `path.resolve()` and `.startsWith()` to ensure they remain inside intended directories (e.g. `FEEDBACK_DIR`).

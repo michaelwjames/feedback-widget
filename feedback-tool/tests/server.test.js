@@ -7,6 +7,11 @@ jest.mock('child_process', () => ({
         if (cb) {
             cb(null, 'done', ''); // node-style callback
         }
+    }),
+    execFile: jest.fn((cmd, args, cb) => {
+        if (cb) {
+            cb(null, 'done', '');
+        }
     })
 }));
 
@@ -76,8 +81,9 @@ describe('Feedback Tool API', () => {
     });
 
     it('POST /api/send-to-jules should return success', async () => {
+        const path = require('path');
         const response = await request(app).post('/api/send-to-jules').send({
-            feedbackDir: '/tmp/test',
+            feedbackDir: path.join(__dirname, '..', 'feedbacks', 'test'),
             sourceId: 'test',
             branch: 'dev'
         });
