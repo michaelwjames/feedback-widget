@@ -68,3 +68,38 @@ Instead of capturing the entire page (which is noisy, extremely large, and consu
 3.  **Sanitization:** The utility must scrub the HTML to remove irrelevant attributes (like standard `class` names if tailwind isn't used, or data-react-helmet), inline `<script>` tags, and the widget's own UI elements to reduce noise.
 4.  **CSS Extraction (Optional but powerful):** Use `window.getComputedStyle(element)` to capture the exact applied styles, creating a localized mapping of CSS rules specific only to the captured HTML.
 5.  **Payload integration:** Append the sanitized HTML string to the `metadata` payload (e.g., `metadata.domSnapshot`). The backend `feedbackService` then appends this to `feedback.md` inside a markdown code block, placing it right next to the screenshot.
+
+---
+
+## 4. Custom Form Fields and Settings Implementation
+
+To allow for more robust reporting and agent orchestration, the widget should support custom form fields and user-configurable settings through a tabbed interface.
+
+### The Tabbed Interface
+On the final result screen (after the initial feedback is analyzed), the UI should transition to a tabbed view beneath the generated Agent Prompt:
+1.  **Jules Tab:** Contains options specific to Jules (e.g., Target Repo, Target Branch, Persona).
+2.  **Linear Tab:** Contains options specific to Linear (e.g., Target Team, Issue Title override).
+3.  **Widget Settings Tab:** Contains global settings that apply to the widget everywhere on the user's machine.
+4.  **Site Settings Tab:** Contains settings specific to the current origin/hostname.
+
+### Widget Settings (Global)
+*   **Storage Mechanism:** Use browser `localStorage`.
+*   **Default Processor:** A setting to choose which tab (Jules or Linear) opens by default when the modal appears.
+*   **Global Custom Fields:** Users can define custom form fields (e.g., dropdowns for "Severity", "Browser Version") that will appear beneath the initial feedback text box.
+    *   **Configuration UI:** Each field needs a Name, Type (Text, Dropdown), and Options (if Dropdown).
+    *   **Agent Inclusion Flags:** Each field must have two checkboxes:
+        1.  *Include in Vision Agent Context*
+        2.  *Include in Final Agent Prompt (e.g., Jules)*
+
+### Site Settings (Local)
+*   **Storage Mechanism:** Use cookies mapped to the current `window.location.hostname` with an expiration date set to 1 year (`max-age=31536000`).
+*   **Pre-filled Defaults:** Allow the user to specify a default Target Repository and Default Branch for the current site.
+*   **Site-Specific Custom Fields:** Similar to global custom fields, but these only render if the user is on this specific domain.
+
+### Data Flow & Payload Integration
+1.  **Rendering:** When the widget opens, it reads `localStorage` and cookies to dynamically render the custom inputs (text inputs or `<select>` dropdowns) beneath the main `textarea`.
+2.  **Submission:** When "Analyze Feedback" is clicked, the widget gathers the values of these custom fields.
+3.  **Vision Prompting:** If a field has the *Include in Vision Agent Context* flag checked, its key/value pair is appended to the markdown text sent to the Groq Vision service (e.g., `**Severity:** High`).
+4.  **Final Payload:** All field values and their configuration flags are sent to the backend `feedbackService` via the `metadata` payload.
+5.  **Backend Markdown Generation:** The backend conditionally appends these fields to `feedback.md`:
+    *   If the *Include in Final Agent Prompt* flag is checked, the backend formats it under a `## Custom Fields` heading in the markdown file so that downstream agents (like Jules) have access to the data.

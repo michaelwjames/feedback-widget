@@ -113,7 +113,7 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         window.open(downloadUrl, '_blank');
       }
     },
-    onSubmitAnalyze: async (text: string, screenshotUrl: string) => {
+    onSubmitAnalyze: async (text: string, screenshotUrl: string, customFields: { name: string, value: string, includeInVision: boolean, includeInAgent: boolean }[]) => {
       modal.setLoading();
 
       const metadata = {
@@ -127,11 +127,21 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         timestamp: new Date().toISOString(),
         comments: commentOverlay.getComments(),
         consoleLogs: consoleCapture.getLogs(),
-        domSnapshot: currentDomSnapshot
+        domSnapshot: currentDomSnapshot,
+        customFields: customFields
       };
 
+      let textForVision = text;
+      const visionFields = customFields.filter(f => f.includeInVision);
+      if (visionFields.length > 0) {
+          textForVision += '\n\nAdditional Context:\n';
+          visionFields.forEach(f => {
+              textForVision += `- ${f.name}: ${f.value}\n`;
+          });
+      }
+
       const payload: FeedbackPayload = {
-        text,
+        text: textForVision,
         screenshot: screenshotUrl,
         metadata
       };

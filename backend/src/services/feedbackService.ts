@@ -69,6 +69,17 @@ export class FeedbackService {
                 markdownContent += `${metadata.domSnapshot}\n`;
                 markdownContent += "```\n\n";
             }
+
+            if (metadata.customFields) {
+                const agentFields = metadata.customFields.filter((f: any) => f.includeInAgent);
+                if (agentFields.length > 0) {
+                    markdownContent += `## Custom Fields\n\n`;
+                    agentFields.forEach((f: any) => {
+                        markdownContent += `- **${f.name}:** ${f.value}\n`;
+                    });
+                    markdownContent += `\n`;
+                }
+            }
         }
 
         let imagePaths: string[] = [];

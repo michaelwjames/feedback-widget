@@ -21,6 +21,7 @@ export interface FeedbackMetadata {
   comments?: FeedbackComment[];
   consoleLogs?: string[];
   domSnapshot?: string;
+  customFields?: { name: string, value: string, includeInVision: boolean, includeInAgent: boolean }[];
 }
 
 export interface FeedbackPayload {
