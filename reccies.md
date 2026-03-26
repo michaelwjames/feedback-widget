@@ -36,3 +36,35 @@ Based on industry-standard feedback and bug-reporting tools (such as Userback, B
 *   **Introduce a Database Layer:** Use PostgreSQL or MongoDB to store feedback metadata, user relationships, status updates, and links to the generated artifacts (PRs, Linear issues).
 *   **Robust Error Handling & Retries:** AI APIs are notoriously flaky and subject to rate limits. Background jobs will naturally allow for implementing exponential backoff and retry mechanisms for Groq and Jules API calls.
 *   **Input Validation & Security:** Use a validation library (like Zod) to strictly type and validate all incoming requests, and replace filesystem-path references with opaque UUIDs to identify feedback entries safely.
+
+---
+
+## 3. DOM Snapshotting Implementation Strategy
+
+To provide the AI agent (and developers) with exact markup context, capturing the DOM is highly beneficial. Here is how DOM snapshotting can be practically implemented within the current widget architecture:
+
+### Targeting Specific Elements (The Recommended Approach)
+
+Instead of capturing the entire page (which is noisy, extremely large, and consumes excessive context tokens for an LLM), the widget should isolate the specific DOM elements the user is interacting with.
+
+1.  **Isolating Beneath Comment Markers:**
+    *   When a user clicks to drop a comment marker, the widget records the `(x, y)` coordinates.
+    *   We can use `document.elementFromPoint(x, y)` to grab the deepest nested DOM element exactly where the user clicked.
+    *   We can then traverse *up* the DOM tree (e.g., to the nearest parent `div`, `section`, or component container) to capture a meaningful structural block, avoiding just grabbing an isolated `<span>`.
+2.  **Isolating Within Selection Rectangles:**
+    *   For drawn rectangles, we can find all elements that intersect with the drawn bounding box (`RectParams`).
+    *   Using `document.querySelectorAll('*')`, we iterate through elements, checking their `getBoundingClientRect()` against the drawn rectangle.
+    *   To prevent redundant nesting data, we find the *highest common ancestor* that fully encompasses the selected nodes or simply capture the outer HTML of the topmost intersecting elements.
+
+### Full-Page Snapshotting
+
+*   **Pros:** Guarantees no context is missed; useful for page-level layout bugs or global CSS conflicts.
+*   **Cons:** The resulting HTML string is massive. For AI agents like Jules or Groq, this will likely exceed token limits or significantly dilute the prompt's focus. It also increases the payload size for HTTP requests.
+
+### Practical Implementation Steps
+
+1.  **Capture Utility:** Create a new utility function in the frontend (`src/utils/domCapture.ts`) triggered during the `processSelection` phase.
+2.  **Serialization:** Once the target element(s) are identified, use `element.outerHTML` to get the markup.
+3.  **Sanitization:** The utility must scrub the HTML to remove irrelevant attributes (like standard `class` names if tailwind isn't used, or data-react-helmet), inline `<script>` tags, and the widget's own UI elements to reduce noise.
+4.  **CSS Extraction (Optional but powerful):** Use `window.getComputedStyle(element)` to capture the exact applied styles, creating a localized mapping of CSS rules specific only to the captured HTML.
+5.  **Payload integration:** Append the sanitized HTML string to the `metadata` payload (e.g., `metadata.domSnapshot`). The backend `feedbackService` then appends this to `feedback.md` inside a markdown code block, placing it right next to the screenshot.
