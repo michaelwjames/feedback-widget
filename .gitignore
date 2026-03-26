@@ -4,3 +4,7 @@ node_modules/
 jules_sources.json
 defaults.json
 dist/
+assets/coupe_car.png
+assets/hero_car.png
+assets/suv_car.png
+assets/vintage_car.png

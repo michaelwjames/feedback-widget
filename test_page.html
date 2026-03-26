@@ -3,37 +3,193 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUXE MKT | Premium Car Marketplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="marketplace.css">
     <link rel="stylesheet" href="frontend/feedback-widget.css">
-    <style>
-        body {
-            font-family: sans-serif;
-            padding: 20px;
-        }
-
-        .test-content {
-            width: 400px;
-            height: 300px;
-            background: #f0f0f0;
-            border: 1px solid #ccc;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-    </style>
+    <!-- Meta description for SEO -->
+    <meta name="description" content="Find the most prestigious supercars and luxury vehicles in our exclusive marketplace.">
 </head>
 
 <body>
-    <h1>Feedback Widget Test</h1>
-    <p>This is a test page to verify the refactored widget.</p>
-    <div class="test-content">
-        Sample Content to Screenshot
-    </div>
+    <!-- Navigation Area -->
+    <nav>
+        <div class="logo">LUXE MKT</div>
+        <div class="nav-links">
+            <a href="#home">Explore</a>
+            <a href="#featured">Featured</a>
+            <a href="#services">Services</a>
+            <a href="#about">About Us</a>
+        </div>
+        <a href="#" class="btn-sell">Sell My Car</a>
+    </nav>
 
+    <!-- Header Section -->
+    <header id="home" class="hero">
+        <h1 id="hero-title">Experience the Peak of Automotive Excellence</h1>
+        <p>Curated collections of the world's most desired automobiles, from vintage classics to modern hypercars.</p>
+        
+        <!-- Interactive Search Bar -->
+        <div class="search-container">
+            <div class="search-field">
+                <label for="brand">Brand</label>
+                <select id="brand">
+                    <option>Select Brand</option>
+                    <option>Ferrari</option>
+                    <option>Porsche</option>
+                    <option>Mercedes-Benz</option>
+                    <option>Lamborghini</option>
+                </select>
+            </div>
+            <div class="search-field border-left">
+                <label for="model">Model</label>
+                <input type="text" id="model" placeholder="Enter Model (e.g., 911)">
+            </div>
+            <div class="search-field border-left">
+                <label for="price">Price Range</label>
+                <select id="price">
+                    <option>Any Price</option>
+                    <option>$50k - $100k</option>
+                    <option>$100k - $250k</option>
+                    <option>$250k+</option>
+                </select>
+            </div>
+            <button id="search-action" class="btn-search">Search Marketplace</button>
+        </div>
+    </header>
+
+    <!-- Project Featured Cars -->
+    <section id="featured" class="section">
+        <div class="section-header">
+            <div class="section-title">
+                <h2>Featured Listings</h2>
+                <p style="color:var(--text-muted)">Discover our top picks for this week.</p>
+            </div>
+            <a href="#" style="color:var(--accent); text-decoration: none; font-weight: 600;">View All Inventory →</a>
+        </div>
+
+        <div class="car-grid">
+            <!-- Supercar Item -->
+            <div class="car-card">
+                <div class="car-image" style="background-image: url('assets/hero_car.png')"></div>
+                <div class="car-info">
+                    <h3>McLaren Artura</h3>
+                    <div class="car-price">$233,000</div>
+                    <div class="car-specs">
+                        <span>3.0L V6 Hybrid</span>
+                        <span>0-60 in 3.0s</span>
+                        <span>2024</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vintage Item -->
+            <div class="car-card">
+                <div class="car-image" style="background-image: url('assets/vintage_car.png')"></div>
+                <div class="car-info">
+                    <h3>Porsche 911 Classic</h3>
+                    <div class="car-price">$185,900</div>
+                    <div class="car-specs">
+                        <span>Flat-Six 2.4L</span>
+                        <span>Restored 2022</span>
+                        <span>1972</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUV Item -->
+            <div class="car-card">
+                <div class="car-image" style="background-image: url('assets/suv_car.png')"></div>
+                <div class="car-info">
+                    <h3>Mercedes-Benz G-Wagon</h3>
+                    <div class="car-price">$179,000</div>
+                    <div class="car-specs">
+                        <span>4.0L V8 BiTurbo</span>
+                        <span>AWD Performance</span>
+                        <span>2023</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coupe Item -->
+            <div class="car-card">
+                <div class="car-image" style="background-image: url('assets/coupe_car.png')"></div>
+                <div class="car-info">
+                    <h3>Aston Martin DBS</h3>
+                    <div class="car-price">$316,500</div>
+                    <div class="car-specs">
+                        <span>5.2L V12 Engine</span>
+                        <span>Futuristic Tech</span>
+                        <span>2024</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Choose Us -->
+    <section id="services" class="section" style="background: rgba(255,255,255,0.02)">
+        <div style="text-align: center; margin-bottom: 4rem;">
+            <h2>The LUXE Difference</h2>
+            <p style="color:var(--text-muted); max-width: 600px; margin: 1rem auto;">We don't just sell cars; we provide an entrance into an exclusive lifestyle.</p>
+        </div>
+        <div class="car-grid">
+            <div style="padding: 2rem; border-radius: 24px; background: var(--bg-card); border: 1px solid var(--glass-border);">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">🛡️</div>
+                <h3>White-Glove Inspection</h3>
+                <p style="color:var(--text-muted); margin-top: 1rem; line-height: 1.6;">Every vehicle undergoes a 500-point inspection by our master technicians to ensure perfection.</p>
+            </div>
+            <div style="padding: 2rem; border-radius: 24px; background: var(--bg-card); border: 1px solid var(--glass-border);">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">✈️</div>
+                <h3>Global Concierge</h3>
+                <p style="color:var(--text-muted); margin-top: 1rem; line-height: 1.6;">Door-to-door enclosed transport and registration handling for any destination worldwide.</p>
+            </div>
+            <div style="padding: 2rem; border-radius: 24px; background: var(--bg-card); border: 1px solid var(--glass-border);">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">💎</div>
+                <h3>Exclusive Events</h3>
+                <p style="color:var(--text-muted); margin-top: 1rem; line-height: 1.6;">Membership grants you access to closed-circuit track days and elite owner rallies.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Area -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="logo">LUXE MKT</div>
+                <p style="color:var(--text-muted); margin-top: 1.5rem;">Unrivaled luxury on four wheels. Redefining the marketplace for the discerning enthusiast.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="#">Inventory</a></li>
+                    <li><a href="#">Sell My Car</a></li>
+                    <li><a href="#">Financing</a></li>
+                    <li><a href="#">Showroom Locations</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="#">FAQ</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--glass-border); color: var(--text-muted); font-size: 0.8rem; text-align: center;">
+            &copy; 2026 LUXE MKT. All rights reserved.
+        </div>
+    </footer>
+
+    <!-- Feedback Widget Configuration & Script -->
     <script>
         window.FEEDBACK_WIDGET_CONFIG = {
-            endpoint: 'http://localhost:12345/api/feedback'
+            endpoint: '/api/feedback' // Using relative path as it's served by the same server
         };
     </script>
     <script src="frontend/feedback-widget.js"></script>

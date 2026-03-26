@@ -100,7 +100,7 @@ feedbacks/
 
 ### 1. Groq Vision OCR (`groq-vision-ocr`)
 Uses **Meta Llama 4 Scout** via Groq's multimodal API. It cross-references the screenshot with the markdown context to understand the user's intent and UI state.
-- **Output**: A technical `prompt_for_jules`.
+- **Output**: A technical `agent_prompt`.
 
 ### 2. Jules Subagent (`jules-subagent`)
 A terminal client for the **Google Jules API**. It takes the refined prompt, clones the target repository, implements the fix, and optionally creates a PR.
