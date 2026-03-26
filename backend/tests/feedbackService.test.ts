@@ -3,7 +3,14 @@ import path from 'path';
 import { FeedbackService } from '../src/services/feedbackService';
 import { FeedbackProcessorFactory } from '../src/services/feedback_processors/processorFactory';
 
-jest.mock('fs');
+jest.mock('fs', () => ({
+    ...jest.requireActual('fs'),
+    promises: {
+        readFile: jest.fn()
+    },
+    existsSync: jest.fn(),
+    readFileSync: jest.fn()
+}));
 jest.mock('../src/services/feedback_processors/processorFactory', () => ({
     FeedbackProcessorFactory: {
         getProcessor: jest.fn()
@@ -34,12 +41,11 @@ describe('FeedbackService', () => {
             process: mockProcess
         });
 
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.readFileSync as jest.Mock).mockImplementation((filepath) => {
-            if (filepath.includes('metadata.json')) return JSON.stringify({ text: 'mock text' });
-            if (filepath.includes('agent_prompt.json')) return JSON.stringify({ agent_prompt: 'mock prompt' });
-            if (filepath.includes('screenshot.png')) return 'mockbase64';
-            return '';
+        (fs.promises.readFile as jest.Mock).mockImplementation((filepath) => {
+            if (filepath.includes('metadata.json')) return Promise.resolve(JSON.stringify({ text: 'mock text' }));
+            if (filepath.includes('agent_prompt.json')) return Promise.resolve(JSON.stringify({ agent_prompt: 'mock prompt' }));
+            if (filepath.includes('screenshot.png')) return Promise.resolve(Buffer.from('mockbase64'));
+            return Promise.reject({ code: 'ENOENT' });
         });
 
         const result = await feedbackService.triggerProcessor('jules', '/tmp/mock-dir', { option1: 'test' });
@@ -57,12 +63,11 @@ describe('FeedbackService', () => {
     });
 
     it('should throw error if attempting to trigger with invalid feedback files', async () => {
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.readFileSync as jest.Mock).mockImplementation((filepath) => {
+        (fs.promises.readFile as jest.Mock).mockImplementation((filepath) => {
             if (filepath.includes('/tmp/missing')) {
-                throw new Error('ENOENT');
+                return Promise.reject(new Error('Unexpected Error'));
             }
-            return '';
+            return Promise.reject({ code: 'ENOENT' });
         });
 
         await expect(feedbackService.triggerProcessor('jules', '/tmp/missing', {}))
