@@ -8,9 +8,6 @@ import { AuthController } from './controllers/authController';
 
 const router = Router();
 
-// Vision Routes
-router.post('/api/vision/analyze', VisionController.runAnalysis);
-
 // Open routes
 router.post('/api/auth/login', AuthController.login);
 router.get('/api/auth/check', AuthController.check);
@@ -35,6 +32,9 @@ router.post('/api/send-to/:processor', ProcessorController.sendToProcessor);
 
 router.post('/api/feedback', FeedbackController.saveFeedback);
 router.get('/api/feedback/download', AuthController.middleware, FeedbackController.downloadFeedback);
+
+// Vision Routes (Protected)
+router.post('/api/vision/analyze', AuthController.middleware, VisionController.runAnalysis);
 
 
 export default router;
