@@ -94,6 +94,151 @@
     }
   };
 
+  // src/ui/Toolbar.ts
+  var Toolbar = class {
+    constructor(callbacks) {
+      this.callbacks = callbacks;
+      this.isDragging = false;
+      this.xOffset = 0;
+      this.yOffset = 0;
+      this.container = document.createElement("div");
+      this.container.id = "fw-toolbar";
+      this.container.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      display: none;
+      align-items: center;
+      padding: 5px;
+      z-index: 100000;
+      gap: 5px;
+      cursor: grab;
+    `;
+      const dragHandle = document.createElement("div");
+      dragHandle.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>';
+      dragHandle.style.cssText = `
+      padding: 5px;
+      color: #718096;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+      this.container.appendChild(dragHandle);
+      const btnStyle = `
+      background: transparent;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4a5568;
+      transition: all 0.2s;
+    `;
+      this.selectBtn = document.createElement("button");
+      this.selectBtn.title = "Select Area";
+      this.selectBtn.style.cssText = btnStyle;
+      this.selectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      this.commentBtn = document.createElement("button");
+      this.commentBtn.title = "Add Comment";
+      this.commentBtn.style.cssText = btnStyle;
+      this.commentBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+      const divider = document.createElement("div");
+      divider.style.cssText = "width: 1px; height: 24px; background: #e2e8f0; margin: 0 4px;";
+      this.cancelBtn = document.createElement("button");
+      this.cancelBtn.title = "Cancel Feedback";
+      this.cancelBtn.style.cssText = btnStyle + "color: #e53e3e;";
+      this.cancelBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+      this.container.appendChild(this.selectBtn);
+      this.container.appendChild(this.commentBtn);
+      this.container.appendChild(divider);
+      this.container.appendChild(this.cancelBtn);
+      document.body.appendChild(this.container);
+      this.attachHover(this.selectBtn);
+      this.attachHover(this.commentBtn);
+      this.attachHover(this.cancelBtn, "#fed7d7");
+      this.selectBtn.addEventListener("click", () => {
+        this.setActiveBtn(this.selectBtn);
+        this.callbacks.onModeChanged("select");
+      });
+      this.commentBtn.addEventListener("click", () => {
+        this.setActiveBtn(this.commentBtn);
+        this.callbacks.onModeChanged("comment");
+      });
+      this.cancelBtn.addEventListener("click", () => {
+        this.callbacks.onCancel();
+        this.resetActiveBtn();
+      });
+      this.setupDragging();
+    }
+    attachHover(btn, bg = "#edf2f7") {
+      btn.addEventListener("mouseenter", () => {
+        if (btn.style.backgroundColor !== "#e2e8f0") {
+          btn.style.backgroundColor = bg;
+        }
+      });
+      btn.addEventListener("mouseleave", () => {
+        if (btn.style.backgroundColor !== "#e2e8f0") {
+          btn.style.backgroundColor = "transparent";
+        }
+      });
+    }
+    setActiveBtn(activeBtn) {
+      this.resetActiveBtn();
+      activeBtn.style.backgroundColor = "#e2e8f0";
+      activeBtn.style.color = "#2b6cb0";
+    }
+    resetActiveBtn() {
+      this.selectBtn.style.backgroundColor = "transparent";
+      this.selectBtn.style.color = "#4a5568";
+      this.commentBtn.style.backgroundColor = "transparent";
+      this.commentBtn.style.color = "#4a5568";
+    }
+    show() {
+      this.container.style.display = "flex";
+    }
+    hide() {
+      this.container.style.display = "none";
+      this.resetActiveBtn();
+    }
+    // Dragging logic
+    setupDragging() {
+      this.container.addEventListener("mousedown", this.dragStart.bind(this));
+      document.addEventListener("mousemove", this.drag.bind(this));
+      document.addEventListener("mouseup", this.dragEnd.bind(this));
+    }
+    dragStart(e) {
+      if (e.target.closest("button")) return;
+      this.initialX = e.clientX - this.xOffset;
+      this.initialY = e.clientY - this.yOffset;
+      this.isDragging = true;
+      this.container.style.cursor = "grabbing";
+    }
+    drag(e) {
+      if (!this.isDragging) return;
+      e.preventDefault();
+      this.currentX = e.clientX - this.initialX;
+      this.currentY = e.clientY - this.initialY;
+      this.xOffset = this.currentX;
+      this.yOffset = this.currentY;
+      this.setTranslate(this.currentX, this.currentY, this.container);
+    }
+    setTranslate(xPos, yPos, el) {
+      el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    }
+    dragEnd() {
+      this.initialX = this.currentX;
+      this.initialY = this.currentY;
+      this.isDragging = false;
+      this.container.style.cursor = "grab";
+    }
+  };
+
   // src/ui/Overlay.ts
   var Overlay = class {
     constructor(onComplete) {
@@ -159,6 +304,172 @@
       this.selectionRect.style.width = "0px";
       this.selectionRect.style.height = "0px";
       this.rectParams = null;
+    }
+  };
+
+  // src/ui/CommentOverlay.ts
+  var CommentOverlay = class {
+    constructor() {
+      this.comments = [];
+      this.currentCommentCount = 0;
+      this.activeInput = null;
+      this.isActive = false;
+      this.overlay = document.createElement("div");
+      this.overlay.id = "fw-comment-overlay";
+      this.overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 99998;
+      display: none;
+      cursor: crosshair;
+    `;
+      document.body.appendChild(this.overlay);
+      this.overlay.addEventListener("click", (e) => {
+        if (!this.isActive || e.target !== this.overlay) return;
+        this.placeMarker(e.clientX, e.clientY);
+      });
+    }
+    show() {
+      this.isActive = true;
+      this.overlay.style.display = "block";
+    }
+    hide() {
+      this.isActive = false;
+      this.overlay.style.display = "none";
+      if (this.activeInput) {
+        this.activeInput.remove();
+        this.activeInput = null;
+      }
+    }
+    reset() {
+      this.hide();
+      this.comments = [];
+      this.currentCommentCount = 0;
+      document.querySelectorAll(".fw-comment-marker, .fw-comment-input").forEach((el) => el.remove());
+    }
+    getComments() {
+      return this.comments;
+    }
+    placeMarker(x, y) {
+      if (this.activeInput) {
+        const inputEl = this.activeInput.querySelector("input");
+        if (inputEl && inputEl.value.trim() !== "") {
+          this.saveCommentFromInput();
+        } else {
+          this.activeInput.remove();
+          this.activeInput = null;
+          const lastMarker = document.getElementById(`fw-comment-marker-${this.currentCommentCount}`);
+          if (lastMarker) lastMarker.remove();
+          this.currentCommentCount--;
+        }
+      }
+      this.currentCommentCount++;
+      const num = this.currentCommentCount;
+      const marker = document.createElement("div");
+      marker.className = "fw-comment-marker";
+      marker.id = `fw-comment-marker-${num}`;
+      marker.innerText = num.toString();
+      marker.style.cssText = `
+      position: fixed;
+      top: ${y}px;
+      left: ${x}px;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border: 2px solid #e53e3e;
+      border-radius: 50%;
+      color: #e53e3e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-family: sans-serif;
+      font-size: 14px;
+      z-index: 99999;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    `;
+      document.body.appendChild(marker);
+      this.activeInput = document.createElement("div");
+      this.activeInput.className = "fw-comment-input";
+      this.activeInput.style.cssText = `
+      position: fixed;
+      top: ${y}px;
+      left: ${x + 20}px;
+      transform: translateY(-50%);
+      background: white;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      padding: 5px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: flex;
+      z-index: 99999;
+    `;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = `Details for #${num}...`;
+      input.style.cssText = `
+      border: none;
+      outline: none;
+      padding: 4px 8px;
+      font-size: 14px;
+      width: 200px;
+    `;
+      input.dataset.num = num.toString();
+      input.dataset.x = x.toString();
+      input.dataset.y = y.toString();
+      const saveBtn = document.createElement("button");
+      saveBtn.innerText = "Save";
+      saveBtn.style.cssText = `
+      background: #3182ce;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    `;
+      this.activeInput.appendChild(input);
+      this.activeInput.appendChild(saveBtn);
+      document.body.appendChild(this.activeInput);
+      input.focus();
+      saveBtn.addEventListener("click", () => this.saveCommentFromInput());
+      input.addEventListener("keydown", (e) => {
+        var _a;
+        if (e.key === "Enter") {
+          this.saveCommentFromInput();
+        } else if (e.key === "Escape") {
+          (_a = this.activeInput) == null ? void 0 : _a.remove();
+          this.activeInput = null;
+          marker.remove();
+          this.currentCommentCount--;
+        }
+      });
+    }
+    saveCommentFromInput() {
+      var _a;
+      if (!this.activeInput) return;
+      const input = this.activeInput.querySelector("input");
+      const text = input.value.trim();
+      if (text) {
+        this.comments.push({
+          number: parseInt(input.dataset.num),
+          text,
+          x: parseInt(input.dataset.x),
+          y: parseInt(input.dataset.y)
+        });
+        this.activeInput.remove();
+        this.activeInput = null;
+      } else {
+        const num = parseInt(input.dataset.num);
+        this.activeInput.remove();
+        this.activeInput = null;
+        (_a = document.getElementById(`fw-comment-marker-${num}`)) == null ? void 0 : _a.remove();
+        this.currentCommentCount--;
+      }
     }
   };
 
@@ -529,7 +840,10 @@
             cacheBust: true,
             filter: (node) => {
               if (node.tagName === "SCRIPT") return false;
-              if (node.id && node.id.startsWith("fw-")) return false;
+              if (node.id === "fw-toolbar") return false;
+              if (node.id === "fw-overlay") return false;
+              if (node.classList && node.classList.contains("fw-comment-input")) return false;
+              if (node.id && node.id.startsWith("fw-") && !node.id.startsWith("fw-comment-marker-")) return false;
               return true;
             }
           });
@@ -591,19 +905,42 @@
     const api = new APIClient(config);
     const screenshotUtil = new ScreenshotUtil();
     let currentFeedbackDir = null;
+    const toolbar = new Toolbar({
+      onModeChanged: (mode) => {
+        if (mode === "select") {
+          commentOverlay.hide();
+          overlay.show();
+        } else if (mode === "comment") {
+          overlay.hide();
+          commentOverlay.show();
+        }
+      },
+      onCancel: () => {
+        resetAll();
+      }
+    });
+    const commentOverlay = new CommentOverlay();
     const trigger = new Trigger(
       () => {
         modal.reset();
-        overlay.show();
+        commentOverlay.reset();
+        toolbar.show();
+        toolbar.resetActiveBtn();
       },
       () => {
         modal.maximize();
         trigger.hideBadge();
       }
     );
+    function resetAll() {
+      toolbar.hide();
+      overlay.reset();
+      commentOverlay.reset();
+      modal.reset();
+    }
     const modal = new Modal({
       onClose: () => {
-        modal.reset();
+        resetAll();
         trigger.hideBadge();
         currentFeedbackDir = null;
       },
@@ -621,7 +958,8 @@
           userAgent: navigator.userAgent,
           screenResolution: `${window.screen.width}x${window.screen.height}`,
           windowSize: `${window.innerWidth}x${window.innerHeight}`,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          comments: commentOverlay.getComments()
         };
         const payload = {
           text,
@@ -666,11 +1004,12 @@
     });
     function processSelection(rect) {
       return __async(this, null, function* () {
-        modal.maximize();
-        trigger.hideBadge();
+        toolbar.hide();
         overlay.hide();
         try {
           const dataUrl = yield screenshotUtil.captureSelection(rect);
+          modal.maximize();
+          trigger.hideBadge();
           modal.setPreviewImage(dataUrl);
           modal.show();
         } catch (err) {

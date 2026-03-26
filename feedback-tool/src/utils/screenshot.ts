@@ -35,7 +35,13 @@ export class ScreenshotUtil {
         filter: (node: HTMLElement) => {
           // Exclude scripts and our own widget elements to prevent capture errors/recursion
           if (node.tagName === 'SCRIPT') return false;
-          if (node.id && node.id.startsWith('fw-')) return false;
+          if (node.id === 'fw-toolbar') return false; // Exclude floating toolbar
+          if (node.id === 'fw-overlay') return false; // Exclude selection overlay
+          if (node.classList && node.classList.contains('fw-comment-input')) return false; // Exclude text inputs
+
+          // But KEEP the comment markers themselves (they have class 'fw-comment-marker')
+          if (node.id && node.id.startsWith('fw-') && !node.id.startsWith('fw-comment-marker-')) return false;
+
           return true;
         }
       });

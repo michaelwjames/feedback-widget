@@ -1,6 +1,8 @@
 import { APIClient } from './api';
 import { Trigger } from './ui/Trigger';
+import { Toolbar, ToolbarMode } from './ui/Toolbar';
 import { Overlay, RectParams } from './ui/Overlay';
+import { CommentOverlay } from './ui/CommentOverlay';
 import { Modal } from './ui/Modal';
 import { ScreenshotUtil } from './utils/screenshot';
 import { Config, FeedbackPayload, JulesPayload } from './types';
@@ -14,11 +16,30 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
 
   let currentFeedbackDir: string | null = null;
 
+  const toolbar = new Toolbar({
+    onModeChanged: (mode: ToolbarMode) => {
+      if (mode === 'select') {
+        commentOverlay.hide();
+        overlay.show();
+      } else if (mode === 'comment') {
+        overlay.hide();
+        commentOverlay.show();
+      }
+    },
+    onCancel: () => {
+      resetAll();
+    }
+  });
+
+  const commentOverlay = new CommentOverlay();
+
   const trigger = new Trigger(
     () => {
       // Ensure fresh feedback clicks always reset the process
-      modal.reset(); // Close any existing modal and reset its state
-      overlay.show();
+      modal.reset();
+      commentOverlay.reset();
+      toolbar.show();
+      toolbar.resetActiveBtn();
     },
     () => {
       modal.maximize();
@@ -26,9 +47,16 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
     }
   );
 
+  function resetAll() {
+    toolbar.hide();
+    overlay.reset();
+    commentOverlay.reset();
+    modal.reset();
+  }
+
   const modal = new Modal({
     onClose: () => {
-      modal.reset();
+      resetAll();
       trigger.hideBadge();
       currentFeedbackDir = null;
     },
@@ -47,7 +75,8 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
         userAgent: navigator.userAgent,
         screenResolution: `${window.screen.width}x${window.screen.height}`,
         windowSize: `${window.innerWidth}x${window.innerHeight}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        comments: commentOverlay.getComments()
       };
 
       const payload: FeedbackPayload = {
@@ -98,21 +127,24 @@ import { Config, FeedbackPayload, JulesPayload } from './types';
   });
 
   async function processSelection(rect: RectParams) {
-    // New feedback capture always clears any old minimized state
-    modal.maximize();
-    trigger.hideBadge();
-
-    // Hide overlay temporarily to capture what's underneath
+    // Hide UI elements before taking screenshot
+    toolbar.hide();
     overlay.hide();
 
     try {
       const dataUrl = await screenshotUtil.captureSelection(rect);
+
+      // Now that screenshot is captured, we can process the rest
+      modal.maximize();
+      trigger.hideBadge();
+
       modal.setPreviewImage(dataUrl);
       modal.show();
     } catch (err: any) {
       alert("Screenshot capture failed. Error: " + err.message);
     } finally {
       overlay.reset();
+      // Keep comment markers visible while modal is open (they will be cleaned on reset/cancel)
     }
   }
 

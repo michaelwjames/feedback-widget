@@ -2,6 +2,13 @@ export interface Config {
   endpoint: string;
 }
 
+export interface FeedbackComment {
+  number: number;
+  text: string;
+  x: number;
+  y: number;
+}
+
 export interface FeedbackMetadata {
   url: string;
   pathname: string;
@@ -11,6 +18,7 @@ export interface FeedbackMetadata {
   screenResolution: string;
   windowSize: string;
   timestamp: string;
+  comments?: FeedbackComment[];
 }
 
 export interface FeedbackPayload {

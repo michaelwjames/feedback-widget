@@ -51,14 +51,14 @@ describe('Feedback Widget', () => {
         expect(modalContainer).not.toBeNull();
     });
 
-    it('should show the overlay when the button is clicked', () => {
+    it('should show the toolbar when the button is clicked', () => {
         const triggerBtn = document.getElementById('fw-trigger-btn');
-        const overlay = document.getElementById('fw-overlay');
+        const toolbar = document.getElementById('fw-toolbar');
 
-        expect(overlay.style.display).toBe(''); // Default state
+        expect(toolbar.style.display).toBe('none'); // Default state
 
         triggerBtn.click();
-        expect(overlay.style.display).toBe('block');
+        expect(toolbar.style.display).toBe('flex');
     });
 
     it('should have a textarea for input', () => {
