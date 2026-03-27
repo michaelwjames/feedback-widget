@@ -13,9 +13,32 @@ export class AiMockServer {
     }
 
     private setupRoutes() {
-        // Mock Groq API endpoint
-        this.app.post('/openai/v1/chat/completions', (req: Request, res: Response) => {
-            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Serving Groq chat completion...`);
+        // Mock Groq API endpoint - Block and wait for Jules (agent) to provide the genuine response
+        this.app.post('/openai/v1/chat/completions', async (req: Request, res: Response) => {
+            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Blocking for Groq chat completion from Jules...`);
+
+            const fs = require('fs');
+            const requestPath = '/tmp/groq_request.json';
+            const responsePath = '/tmp/groq_response.json';
+
+            // Delete old response file if it exists to prevent reading a stale one
+            if (fs.existsSync(responsePath)) {
+                fs.unlinkSync(responsePath);
+            }
+
+            // Write the incoming payload (prompt and images) for Jules to read
+            fs.writeFileSync(requestPath, JSON.stringify(req.body, null, 2));
+            console.log(`[Mock Server] Wrote Groq request to ${requestPath}. Waiting for ${responsePath}...`);
+
+            // Poll for the response file created by Jules
+            while (!fs.existsSync(responsePath)) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            // Read Jules' genuine response
+            const julesResponse = JSON.parse(fs.readFileSync(responsePath, 'utf8'));
+            console.log(`[Mock Server] Read Groq response from ${responsePath}. Proceeding...`);
+
             const mockedResponse = {
                 id: 'mock-groq-chat-cmpl-123',
                 object: 'chat.completion',
@@ -26,9 +49,7 @@ export class AiMockServer {
                         index: 0,
                         message: {
                             role: 'assistant',
-                            content: JSON.stringify({
-                                agent_prompt: "### CONTEXT\nMocked Context.\n\n### INSTRUCTIONS\nMocked instructions from dynamic server."
-                            })
+                            content: JSON.stringify(julesResponse)
                         },
                         finish_reason: 'stop'
                     }
@@ -39,6 +60,11 @@ export class AiMockServer {
                     total_tokens: 30
                 }
             };
+
+            // Cleanup
+            fs.unlinkSync(requestPath);
+            fs.unlinkSync(responsePath);
+
             res.status(200).json(mockedResponse);
         });
 
@@ -53,22 +79,68 @@ export class AiMockServer {
             });
         });
 
-        this.app.post('/sessions', (req: Request, res: Response) => {
-            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Serving Jules session creation...`);
+        this.app.post('/sessions', async (req: Request, res: Response) => {
+            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Blocking for Jules session creation...`);
+
+            const fs = require('fs');
+            const requestPath = '/tmp/jules_request.json';
+            const responsePath = '/tmp/jules_response.json';
+
+            if (fs.existsSync(responsePath)) {
+                fs.unlinkSync(responsePath);
+            }
+
+            fs.writeFileSync(requestPath, JSON.stringify(req.body, null, 2));
+            console.log(`[Mock Server] Wrote Jules request to ${requestPath}. Waiting for ${responsePath}...`);
+
+            while (!fs.existsSync(responsePath)) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            const julesResponse = JSON.parse(fs.readFileSync(responsePath, 'utf8'));
+            console.log(`[Mock Server] Read Jules response from ${responsePath}. Proceeding...`);
+
             const { prompt } = req.body;
+
+            // Clean up
+            fs.unlinkSync(requestPath);
+            fs.unlinkSync(responsePath);
+
             res.status(200).json({
                 name: 'sessions/mock-session-123',
                 state: 'STATE_UNSPECIFIED',
-                prompt
+                prompt,
+                ...julesResponse
             });
         });
 
         // Add wildcard catch-all for debugging unexpected calls
-        this.app.all('*', (req: Request, res: Response) => {
+        this.app.all('*', async (req: Request, res: Response) => {
             console.log(`[Mock Server] Unhandled Request: ${req.method} ${req.originalUrl}`);
-            // if this is a groq request, just return the chat completion so it doesn't fail tests
+
+            // if this is a groq request, block and wait for Jules
             if (req.originalUrl.includes('chat/completions')) {
-                 const mockedResponse = {
+                console.log(`[Mock Server] Received Request via wildcard fallback: ${req.method} ${req.originalUrl} - Blocking for Groq chat completion from Jules...`);
+
+                const fs = require('fs');
+                const requestPath = '/tmp/groq_request.json';
+                const responsePath = '/tmp/groq_response.json';
+
+                if (fs.existsSync(responsePath)) {
+                    fs.unlinkSync(responsePath);
+                }
+
+                fs.writeFileSync(requestPath, JSON.stringify(req.body, null, 2));
+                console.log(`[Mock Server] Wrote Groq request to ${requestPath}. Waiting for ${responsePath}...`);
+
+                while (!fs.existsSync(responsePath)) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
+                const julesResponse = JSON.parse(fs.readFileSync(responsePath, 'utf8'));
+                console.log(`[Mock Server] Read Groq response from ${responsePath}. Proceeding...`);
+
+                const mockedResponse = {
                     id: 'mock-groq-chat-cmpl-123',
                     object: 'chat.completion',
                     created: Date.now(),
@@ -78,9 +150,7 @@ export class AiMockServer {
                             index: 0,
                             message: {
                                 role: 'assistant',
-                                content: JSON.stringify({
-                                    agent_prompt: "### CONTEXT\nMocked Context.\n\n### INSTRUCTIONS\nMocked instructions from dynamic server."
-                                })
+                                content: JSON.stringify(julesResponse)
                             },
                             finish_reason: 'stop'
                         }
@@ -91,6 +161,10 @@ export class AiMockServer {
                         total_tokens: 30
                     }
                 };
+
+                fs.unlinkSync(requestPath);
+                fs.unlinkSync(responsePath);
+
                 res.status(200).json(mockedResponse);
                 return;
             }

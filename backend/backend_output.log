@@ -1,0 +1,13 @@
+
+> feedback-widget-backend@1.0.0 start
+> ts-node src/server.ts
+
+(node:20960) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Feedback server listening at http://localhost:12345
+Serving static files from: /app
+Saved feedback files to /app/backend/feedbacks/1774633913982.
+[INFO] Groq API call completed in 0.03s | total_tokens=30
+[AGENT WORKFLOW] Triggering jules for /app/backend/feedbacks/1774633913982
+Saved feedback files to /app/backend/feedbacks/1774634104556.
+[INFO] Groq API call completed in 116.57s | total_tokens=30
