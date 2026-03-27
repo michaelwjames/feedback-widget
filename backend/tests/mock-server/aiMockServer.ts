@@ -15,6 +15,7 @@ export class AiMockServer {
     private setupRoutes() {
         // Mock Groq API endpoint
         this.app.post('/openai/v1/chat/completions', (req: Request, res: Response) => {
+            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Serving Groq chat completion...`);
             const mockedResponse = {
                 id: 'mock-groq-chat-cmpl-123',
                 object: 'chat.completion',
@@ -43,6 +44,7 @@ export class AiMockServer {
 
         // Mock Jules API endpoints
         this.app.get('/sources', (req: Request, res: Response) => {
+            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Serving Jules sources...`);
             res.status(200).json({
                 sources: [
                     { name: 'mock-source-1', githubRepo: { owner: 'test', repo: 'test' } },
@@ -52,6 +54,7 @@ export class AiMockServer {
         });
 
         this.app.post('/sessions', (req: Request, res: Response) => {
+            console.log(`[Mock Server] Received Request: ${req.method} ${req.originalUrl} - Serving Jules session creation...`);
             const { prompt } = req.body;
             res.status(200).json({
                 name: 'sessions/mock-session-123',
