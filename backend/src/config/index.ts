@@ -13,7 +13,9 @@ export const config = {
     widgetPassword: process.env.WIDGET_PASSWORD, // this should fail if not set
     visionProvider: process.env.VISION_PROVIDER || 'groq',
     groqApiKey: process.env.GROQ_API_KEY || '',
+    groqBaseUrl: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
     julesApiKey: process.env.JULES_API_KEY || '',
+    julesApiUrl: process.env.JULES_API_URL || 'https://jules.googleapis.com/v1alpha',
     linearApiKey: process.env.LINEAR_API_KEY || '',
     linearTeamId: process.env.LINEAR_TEAM_ID || '',
     // Always resolve relative to /tmp on Vercel to allow writing feedback

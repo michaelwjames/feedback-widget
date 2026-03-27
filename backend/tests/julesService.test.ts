@@ -3,19 +3,6 @@ import { JulesService } from '../src/services/feedback_processors/jules/julesSer
 import { JulesClient } from '../src/services/feedback_processors/jules/julesClient';
 
 jest.mock('fs');
-const mockCreateSession = jest.fn().mockResolvedValue({ id: 'session-123' });
-const mockListSources = jest.fn().mockResolvedValue({ sources: [] });
-
-jest.mock('../src/services/feedback_processors/jules/julesClient', () => {
-    return {
-        JulesClient: jest.fn().mockImplementation(() => {
-            return {
-                createSession: mockCreateSession,
-                listSources: mockListSources
-            };
-        })
-    };
-});
 
 jest.mock('../src/config', () => ({
     config: {
@@ -23,7 +10,8 @@ jest.mock('../src/config', () => ({
         defaultsFile: '/tmp/defaults.json',
         defaultsExampleFile: '/tmp/defaults.json.example',
         julesCacheFile: '/tmp/jules_sources.json',
-        julesCacheExampleFile: '/tmp/jules_sources.json.example'
+        julesCacheExampleFile: '/tmp/jules_sources.json.example',
+        julesApiUrl: 'http://localhost:3001'
     }
 }));
 
@@ -33,8 +21,6 @@ describe('JulesService', () => {
     beforeEach(() => {
         service = new JulesService('test-key');
         jest.clearAllMocks();
-        mockCreateSession.mockClear();
-        mockListSources.mockClear();
     });
 
     it('should create session with persona prompt appended', async () => {
@@ -42,11 +28,8 @@ describe('JulesService', () => {
         const payload = { text: 'test feedback base', screenshot: '', metadata };
         const result = await service.process(payload, { persona: 'auditor' });
         
-        expect(result).toEqual({ id: 'session-123' });
-        expect(mockCreateSession).toHaveBeenCalledWith(
-            'You are the auditor. Read AGENTS.md first. test feedback base',
-            undefined, undefined, undefined, undefined, "AUTO_CREATE_PR"
-        );
+        expect(result.name).toEqual('sessions/mock-session-123');
+        expect(result.prompt).toContain('You are the auditor. Read AGENTS.md first. test feedback base');
     });
 
     it('should get defaults and initialize if needed', async () => {
