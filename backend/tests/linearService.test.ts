@@ -34,7 +34,7 @@ describe('LinearService', () => {
         expect(mockCreateIssue).toHaveBeenCalledWith(
             'Feedback: basic feedback',
             '## User Feedback\n\nbasic feedback\n\n',
-            undefined
+            'test-team'
         );
     });
 
