@@ -90,15 +90,25 @@ export class FeedbackService {
         let screenshotBase64 = "";
 
         try {
-            if (fs.existsSync(metadataPath)) {
-                metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            const readMetadata = fs.promises ? fs.promises.readFile(metadataPath, 'utf8') : Promise.resolve(fs.existsSync(metadataPath) ? fs.readFileSync(metadataPath, 'utf8') : null);
+            const readPrompt = fs.promises ? fs.promises.readFile(promptFilePath, 'utf8') : Promise.resolve(fs.existsSync(promptFilePath) ? fs.readFileSync(promptFilePath, 'utf8') : null);
+            const readScreenshot = fs.promises ? fs.promises.readFile(screenshotPath, { encoding: 'base64' }) : Promise.resolve(fs.existsSync(screenshotPath) ? fs.readFileSync(screenshotPath, { encoding: 'base64' }) : null);
+
+            const [metadataStr, promptDataStr, screenshotData] = await Promise.all([
+                readMetadata.catch((err: any) => { if (err.code !== 'ENOENT') throw err; return null; }),
+                readPrompt.catch((err: any) => { if (err.code !== 'ENOENT') throw err; return null; }),
+                readScreenshot.catch((err: any) => { if (err.code !== 'ENOENT') throw err; return null; })
+            ]);
+
+            if (metadataStr) {
+                metadata = JSON.parse(metadataStr);
             }
-            if (fs.existsSync(promptFilePath)) {
-                const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+            if (promptDataStr) {
+                const promptData = JSON.parse(promptDataStr);
                 promptFromAnalysis = promptData.agent_prompt;
             }
-            if (fs.existsSync(screenshotPath)) {
-                screenshotBase64 = `data:image/png;base64,${fs.readFileSync(screenshotPath, { encoding: 'base64' })}`;
+            if (screenshotData) {
+                screenshotBase64 = `data:image/png;base64,${screenshotData}`;
             }
         } catch (err) {
             console.error("Failed to read feedback files:", err);
