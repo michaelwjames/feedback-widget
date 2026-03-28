@@ -90,7 +90,6 @@ export class FeedbackService {
         let screenshotBase64 = "";
 
         try {
-            // Using Promise.all and async reads to prevent blocking the Node event loop and improve throughput
             const [metadataContent, promptContent, screenshotContent] = await Promise.all([
                 fs.promises.readFile(metadataPath, 'utf8').catch((e: any) => e.code === 'ENOENT' ? null : Promise.reject(e)),
                 fs.promises.readFile(promptFilePath, 'utf8').catch((e: any) => e.code === 'ENOENT' ? null : Promise.reject(e)),

@@ -26,7 +26,7 @@ describe('LinearService', () => {
     });
 
     it('should create issue and format description without screenshot', async () => {
-    const metadata = { url: '', pathname: '', hostname: '', pageTitle: '', userAgent: '', screenResolution: '', windowSize: '', timestamp: '' };
+        const metadata = { url: '', pathname: '', hostname: '', pageTitle: '', userAgent: '', screenResolution: '', windowSize: '', timestamp: '' };
         const payload = { text: 'basic feedback', screenshot: '', metadata };
         const result = await service.process(payload);
 
@@ -34,7 +34,7 @@ describe('LinearService', () => {
         expect(mockCreateIssue).toHaveBeenCalledWith(
             'Feedback: basic feedback',
             '## User Feedback\n\nbasic feedback\n\n',
-            undefined
+            'test-team'
         );
     });
 

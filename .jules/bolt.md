@@ -1,0 +1,4 @@
+
+## 2024-03-28 - Parallelizing feedback file reads
+**Learning:** In a Node.js Express server (`backend/src/services/feedbackService.ts`), sequentially reading files (`metadata.json`, `agent_prompt.json`, `screenshot.png`) with synchronous methods like `fs.existsSync` and `fs.readFileSync` blocks the event loop and delays processing, especially under load. This can cause severe performance issues since the event loop handles incoming requests concurrently.
+**Action:** Replace synchronous file I/O operations with asynchronous ones, e.g. using `fs.promises.readFile` and use `Promise.all` to read all the necessary files concurrently. For optional files, append `.catch(e => e.code === 'ENOENT' ? null : Promise.reject(e))` to ensure missing files do not break the application and still mimic `fs.existsSync` without blocking.

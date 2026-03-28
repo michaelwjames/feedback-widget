@@ -3,7 +3,16 @@ import path from 'path';
 import { FeedbackService } from '../src/services/feedbackService';
 import { FeedbackProcessorFactory } from '../src/services/feedback_processors/processorFactory';
 
-jest.mock('fs');
+jest.mock('fs', () => ({
+    ...jest.requireActual('fs'),
+    existsSync: jest.fn(),
+    mkdirSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    promises: {
+        readFile: jest.fn()
+    }
+}));
+
 jest.mock('../src/services/feedback_processors/processorFactory', () => ({
     FeedbackProcessorFactory: {
         getProcessor: jest.fn()
@@ -34,8 +43,7 @@ describe('FeedbackService', () => {
             process: mockProcess
         });
 
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.readFileSync as jest.Mock).mockImplementation((filepath) => {
+        (fs.promises.readFile as jest.Mock).mockImplementation(async (filepath) => {
             if (filepath.includes('metadata.json')) return JSON.stringify({ text: 'mock text' });
             if (filepath.includes('agent_prompt.json')) return JSON.stringify({ agent_prompt: 'mock prompt' });
             if (filepath.includes('screenshot.png')) return 'mockbase64';
@@ -57,10 +65,9 @@ describe('FeedbackService', () => {
     });
 
     it('should throw error if attempting to trigger with invalid feedback files', async () => {
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.readFileSync as jest.Mock).mockImplementation((filepath) => {
+        (fs.promises.readFile as jest.Mock).mockImplementation(async (filepath) => {
             if (filepath.includes('/tmp/missing')) {
-                throw new Error('ENOENT');
+                throw new Error('Some read error');
             }
             return '';
         });
