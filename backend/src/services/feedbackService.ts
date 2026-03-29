@@ -90,15 +90,33 @@ export class FeedbackService {
         let screenshotBase64 = "";
 
         try {
-            if (fs.existsSync(metadataPath)) {
-                metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            // ⚡ Bolt: Replaced sequential synchronous fs.readFileSync calls with concurrent Promise.all
+            // using fs.promises.readFile. This prevents blocking the Node.js main thread during disk I/O
+            // and reduces overall latency by reading the 3 optional files in parallel.
+            const [metadataRaw, promptRaw, screenshotRaw] = await Promise.all([
+                fs.promises.readFile(metadataPath, 'utf8').catch(err => {
+                    if (err.code === 'ENOENT') return null;
+                    throw err;
+                }),
+                fs.promises.readFile(promptFilePath, 'utf8').catch(err => {
+                    if (err.code === 'ENOENT') return null;
+                    throw err;
+                }),
+                fs.promises.readFile(screenshotPath, { encoding: 'base64' }).catch(err => {
+                    if (err.code === 'ENOENT') return null;
+                    throw err;
+                })
+            ]);
+
+            if (metadataRaw) {
+                metadata = JSON.parse(metadataRaw);
             }
-            if (fs.existsSync(promptFilePath)) {
-                const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+            if (promptRaw) {
+                const promptData = JSON.parse(promptRaw);
                 promptFromAnalysis = promptData.agent_prompt;
             }
-            if (fs.existsSync(screenshotPath)) {
-                screenshotBase64 = `data:image/png;base64,${fs.readFileSync(screenshotPath, { encoding: 'base64' })}`;
+            if (screenshotRaw) {
+                screenshotBase64 = `data:image/png;base64,${screenshotRaw}`;
             }
         } catch (err) {
             console.error("Failed to read feedback files:", err);

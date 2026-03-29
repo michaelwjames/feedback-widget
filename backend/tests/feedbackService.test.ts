@@ -3,7 +3,16 @@ import path from 'path';
 import { FeedbackService } from '../src/services/feedbackService';
 import { FeedbackProcessorFactory } from '../src/services/feedback_processors/processorFactory';
 
-jest.mock('fs');
+jest.mock('fs', () => ({
+    ...jest.requireActual('fs'),
+    existsSync: jest.fn(),
+    readFileSync: jest.fn(),
+    promises: {
+        readFile: jest.fn(),
+        writeFile: jest.fn(),
+        mkdir: jest.fn(),
+    }
+}));
 jest.mock('../src/services/feedback_processors/processorFactory', () => ({
     FeedbackProcessorFactory: {
         getProcessor: jest.fn()
@@ -41,6 +50,12 @@ describe('FeedbackService', () => {
             if (filepath.includes('screenshot.png')) return 'mockbase64';
             return '';
         });
+        (fs.promises.readFile as jest.Mock).mockImplementation((filepath) => {
+            if (filepath.includes('metadata.json')) return Promise.resolve(JSON.stringify({ text: 'mock text' }));
+            if (filepath.includes('agent_prompt.json')) return Promise.resolve(JSON.stringify({ agent_prompt: 'mock prompt' }));
+            if (filepath.includes('screenshot.png')) return Promise.resolve('mockbase64');
+            return Promise.reject(new Error('ENOENT'));
+        });
 
         const result = await feedbackService.triggerProcessor('jules', '/tmp/mock-dir', { option1: 'test' });
         
@@ -63,6 +78,9 @@ describe('FeedbackService', () => {
                 throw new Error('ENOENT');
             }
             return '';
+        });
+        (fs.promises.readFile as jest.Mock).mockImplementation((filepath) => {
+             return Promise.reject(new Error('ENOENT'));
         });
 
         await expect(feedbackService.triggerProcessor('jules', '/tmp/missing', {}))
