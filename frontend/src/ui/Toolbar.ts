@@ -22,6 +22,7 @@ export class Toolbar {
   private initialY = 0;
   private xOffset = 0;
   private yOffset = 0;
+  private isTicking = false;
 
   constructor(private callbacks: ToolbarCallbacks) {
     this.container = document.createElement('div');
@@ -210,17 +211,39 @@ export class Toolbar {
     this.currentX = e.clientX - this.initialX;
     this.currentY = e.clientY - this.initialY;
 
-    this.xOffset = this.currentX;
-    this.yOffset = this.currentY;
+    // ⚡ Bolt: Offload costly DOM style updates during mouse drag to the next animation frame.
+    // This allows the browser to consolidate layout calculations, avoiding jank and keeping the UI feeling responsive.
+    if (!this.isTicking) {
+      window.requestAnimationFrame(() => {
+        if (!this.isDragging) {
+          this.isTicking = false;
+          return;
+        }
 
-    this.setTranslate(this.currentX, this.currentY, this.container);
+        this.xOffset = this.currentX;
+        this.yOffset = this.currentY;
+
+        this.setTranslate(this.currentX, this.currentY, this.container);
+        this.isTicking = false;
+      });
+      this.isTicking = true;
+    }
   }
 
   private setTranslate(xPos: number, yPos: number, el: HTMLElement) {
     el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
   }
 
-  private dragEnd() {
+  private dragEnd(e: MouseEvent) {
+    if (!this.isDragging) return;
+
+    // ⚡ Bolt: Flush final position to ensure accuracy if the mouseup happened before the next frame
+    this.currentX = e.clientX - this.initialX;
+    this.currentY = e.clientY - this.initialY;
+    this.xOffset = this.currentX;
+    this.yOffset = this.currentY;
+    this.setTranslate(this.currentX, this.currentY, this.container);
+
     this.initialX = this.currentX;
     this.initialY = this.currentY;
     this.isDragging = false;

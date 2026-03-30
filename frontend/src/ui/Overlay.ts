@@ -15,6 +15,7 @@ export class Overlay {
   private rects: { div: HTMLDivElement, params: RectParams }[] = [];
   private dimmingSvg: SVGSVGElement;
   private dimmingPath: SVGPathElement;
+  private isTicking: boolean = false;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -82,23 +83,54 @@ export class Overlay {
       const currentX = e.clientX;
       const currentY = e.clientY;
 
-      const width = Math.abs(currentX - this.startX);
-      const height = Math.abs(currentY - this.startY);
-      const left = Math.min(currentX, this.startX);
-      const top = Math.min(currentY, this.startY);
+      // ⚡ Bolt: Optimize rapid DOM updates during mousemove by throttling with requestAnimationFrame.
+      // This prevents layout thrashing and ensures we only update the DOM once per screen refresh (~60fps),
+      // keeping the main thread free for a smoother drawing experience.
+      if (!this.isTicking) {
+        window.requestAnimationFrame(() => {
+          if (!this.isDrawing || !this.currentRectDiv) {
+            this.isTicking = false;
+            return;
+          }
 
-      this.currentRectDiv.style.left = `${left}px`;
-      this.currentRectDiv.style.top = `${top}px`;
-      this.currentRectDiv.style.width = `${width}px`;
-      this.currentRectDiv.style.height = `${height}px`;
+          const width = Math.abs(currentX - this.startX);
+          const height = Math.abs(currentY - this.startY);
+          const left = Math.min(currentX, this.startX);
+          const top = Math.min(currentY, this.startY);
 
-      this.currentRectParams = { x: left, y: top, width, height };
-      this.updateDimming();
+          this.currentRectDiv.style.left = `${left}px`;
+          this.currentRectDiv.style.top = `${top}px`;
+          this.currentRectDiv.style.width = `${width}px`;
+          this.currentRectDiv.style.height = `${height}px`;
+
+          this.currentRectParams = { x: left, y: top, width, height };
+          this.updateDimming();
+
+          this.isTicking = false;
+        });
+        this.isTicking = true;
+      }
     });
 
-    this.overlay.addEventListener('mouseup', () => {
+    this.overlay.addEventListener('mouseup', (e: MouseEvent) => {
       if (!this.isDrawing) return;
       this.isDrawing = false;
+
+      // ⚡ Bolt: Ensure final coordinates are accurately captured if a frame was dropped/pending
+      if (this.currentRectDiv) {
+          const width = Math.abs(e.clientX - this.startX);
+          const height = Math.abs(e.clientY - this.startY);
+          const left = Math.min(e.clientX, this.startX);
+          const top = Math.min(e.clientY, this.startY);
+
+          this.currentRectDiv.style.left = `${left}px`;
+          this.currentRectDiv.style.top = `${top}px`;
+          this.currentRectDiv.style.width = `${width}px`;
+          this.currentRectDiv.style.height = `${height}px`;
+
+          this.currentRectParams = { x: left, y: top, width, height };
+          this.updateDimming();
+      }
 
       document.body.style.userSelect = '';
 

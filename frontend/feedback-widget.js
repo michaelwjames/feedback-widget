@@ -154,6 +154,7 @@
       __publicField(this, "initialY", 0);
       __publicField(this, "xOffset", 0);
       __publicField(this, "yOffset", 0);
+      __publicField(this, "isTicking", false);
       this.container = document.createElement("div");
       this.container.id = "fw-toolbar";
       this.container.style.cssText = `
@@ -308,14 +309,30 @@
       e.preventDefault();
       this.currentX = e.clientX - this.initialX;
       this.currentY = e.clientY - this.initialY;
-      this.xOffset = this.currentX;
-      this.yOffset = this.currentY;
-      this.setTranslate(this.currentX, this.currentY, this.container);
+      if (!this.isTicking) {
+        window.requestAnimationFrame(() => {
+          if (!this.isDragging) {
+            this.isTicking = false;
+            return;
+          }
+          this.xOffset = this.currentX;
+          this.yOffset = this.currentY;
+          this.setTranslate(this.currentX, this.currentY, this.container);
+          this.isTicking = false;
+        });
+        this.isTicking = true;
+      }
     }
     setTranslate(xPos, yPos, el) {
       el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
     }
-    dragEnd() {
+    dragEnd(e) {
+      if (!this.isDragging) return;
+      this.currentX = e.clientX - this.initialX;
+      this.currentY = e.clientY - this.initialY;
+      this.xOffset = this.currentX;
+      this.yOffset = this.currentY;
+      this.setTranslate(this.currentX, this.currentY, this.container);
       this.initialX = this.currentX;
       this.initialY = this.currentY;
       this.isDragging = false;
@@ -335,6 +352,7 @@
       __publicField(this, "rects", []);
       __publicField(this, "dimmingSvg");
       __publicField(this, "dimmingPath");
+      __publicField(this, "isTicking", false);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
@@ -385,20 +403,42 @@
         if (!this.isDrawing || !this.currentRectDiv) return;
         const currentX = e.clientX;
         const currentY = e.clientY;
-        const width = Math.abs(currentX - this.startX);
-        const height = Math.abs(currentY - this.startY);
-        const left = Math.min(currentX, this.startX);
-        const top = Math.min(currentY, this.startY);
-        this.currentRectDiv.style.left = `${left}px`;
-        this.currentRectDiv.style.top = `${top}px`;
-        this.currentRectDiv.style.width = `${width}px`;
-        this.currentRectDiv.style.height = `${height}px`;
-        this.currentRectParams = { x: left, y: top, width, height };
-        this.updateDimming();
+        if (!this.isTicking) {
+          window.requestAnimationFrame(() => {
+            if (!this.isDrawing || !this.currentRectDiv) {
+              this.isTicking = false;
+              return;
+            }
+            const width = Math.abs(currentX - this.startX);
+            const height = Math.abs(currentY - this.startY);
+            const left = Math.min(currentX, this.startX);
+            const top = Math.min(currentY, this.startY);
+            this.currentRectDiv.style.left = `${left}px`;
+            this.currentRectDiv.style.top = `${top}px`;
+            this.currentRectDiv.style.width = `${width}px`;
+            this.currentRectDiv.style.height = `${height}px`;
+            this.currentRectParams = { x: left, y: top, width, height };
+            this.updateDimming();
+            this.isTicking = false;
+          });
+          this.isTicking = true;
+        }
       });
-      this.overlay.addEventListener("mouseup", () => {
+      this.overlay.addEventListener("mouseup", (e) => {
         if (!this.isDrawing) return;
         this.isDrawing = false;
+        if (this.currentRectDiv) {
+          const width = Math.abs(e.clientX - this.startX);
+          const height = Math.abs(e.clientY - this.startY);
+          const left = Math.min(e.clientX, this.startX);
+          const top = Math.min(e.clientY, this.startY);
+          this.currentRectDiv.style.left = `${left}px`;
+          this.currentRectDiv.style.top = `${top}px`;
+          this.currentRectDiv.style.width = `${width}px`;
+          this.currentRectDiv.style.height = `${height}px`;
+          this.currentRectParams = { x: left, y: top, width, height };
+          this.updateDimming();
+        }
         document.body.style.userSelect = "";
         if (this.currentRectParams && this.currentRectParams.width > 20 && this.currentRectParams.height > 20) {
           const div = this.currentRectDiv;
@@ -410,11 +450,11 @@
           closeBtn.innerHTML = "&times;";
           closeBtn.title = "Remove selection";
           div.appendChild(closeBtn);
-          closeBtn.addEventListener("mousedown", (e) => {
-            e.stopPropagation();
+          closeBtn.addEventListener("mousedown", (e2) => {
+            e2.stopPropagation();
           });
-          closeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
+          closeBtn.addEventListener("click", (e2) => {
+            e2.stopPropagation();
             div.remove();
             this.rects = this.rects.filter((r) => r !== selectionObj);
             this.updateDimming();
