@@ -37,10 +37,15 @@ export class FeedbackController {
         }
 
         // Security check: ensure path is inside config.feedbackDir
+        // 🛡️ Sentinel: Fix path traversal. 'startsWith' allows bypassing with similar prefixes
+        // (e.g., /tmp/feedbacks-malicious). Use path.relative to strictly enforce boundary.
         const absolutePath = path.resolve(feedbackPath);
         const feedbackRoot = path.resolve(config.feedbackDir);
 
-        if (!absolutePath.startsWith(feedbackRoot)) {
+        const relativePath = path.relative(feedbackRoot, absolutePath);
+        const isInsideRoot = relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+
+        if (!isInsideRoot && absolutePath !== feedbackRoot) {
             return res.status(403).json({ error: 'Unauthorized path.' });
         }
 
