@@ -1,0 +1,4 @@
+## 2024-05-24 - [Path Traversal with startsWith]
+**Vulnerability:** A path traversal vulnerability existed in the feedback download endpoint (`feedbackController.ts`). The path boundary check used `absolutePath.startsWith(feedbackRoot)`. This is flawed because `/tmp/feedback-test`.startsWith(`/tmp/feedback`) returns true, allowing access to directories outside the intended boundary if they share the same prefix.
+**Learning:** Node.js `path.resolve` strings should not be compared using string matching functions like `startsWith()` for security boundaries, as it does not enforce directory separation.
+**Prevention:** Always use `path.relative` to check directory boundaries. Verify that the relative path does not begin with `..` and is not an absolute path to ensure the target is strictly contained within the intended root directory.
