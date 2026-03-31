@@ -154,6 +154,9 @@
       __publicField(this, "initialY", 0);
       __publicField(this, "xOffset", 0);
       __publicField(this, "yOffset", 0);
+      __publicField(this, "isRafPending", false);
+      __publicField(this, "latestX", 0);
+      __publicField(this, "latestY", 0);
       this.container = document.createElement("div");
       this.container.id = "fw-toolbar";
       this.container.style.cssText = `
@@ -306,11 +309,19 @@
     drag(e) {
       if (!this.isDragging) return;
       e.preventDefault();
-      this.currentX = e.clientX - this.initialX;
-      this.currentY = e.clientY - this.initialY;
-      this.xOffset = this.currentX;
-      this.yOffset = this.currentY;
-      this.setTranslate(this.currentX, this.currentY, this.container);
+      this.latestX = e.clientX;
+      this.latestY = e.clientY;
+      if (!this.isRafPending) {
+        this.isRafPending = true;
+        window.requestAnimationFrame(() => {
+          this.currentX = this.latestX - this.initialX;
+          this.currentY = this.latestY - this.initialY;
+          this.xOffset = this.currentX;
+          this.yOffset = this.currentY;
+          this.setTranslate(this.currentX, this.currentY, this.container);
+          this.isRafPending = false;
+        });
+      }
     }
     setTranslate(xPos, yPos, el) {
       el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
@@ -335,6 +346,9 @@
       __publicField(this, "rects", []);
       __publicField(this, "dimmingSvg");
       __publicField(this, "dimmingPath");
+      __publicField(this, "isRafPending", false);
+      __publicField(this, "latestX", 0);
+      __publicField(this, "latestY", 0);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
@@ -383,18 +397,28 @@
       });
       this.overlay.addEventListener("mousemove", (e) => {
         if (!this.isDrawing || !this.currentRectDiv) return;
-        const currentX = e.clientX;
-        const currentY = e.clientY;
-        const width = Math.abs(currentX - this.startX);
-        const height = Math.abs(currentY - this.startY);
-        const left = Math.min(currentX, this.startX);
-        const top = Math.min(currentY, this.startY);
-        this.currentRectDiv.style.left = `${left}px`;
-        this.currentRectDiv.style.top = `${top}px`;
-        this.currentRectDiv.style.width = `${width}px`;
-        this.currentRectDiv.style.height = `${height}px`;
-        this.currentRectParams = { x: left, y: top, width, height };
-        this.updateDimming();
+        this.latestX = e.clientX;
+        this.latestY = e.clientY;
+        if (!this.isRafPending) {
+          this.isRafPending = true;
+          window.requestAnimationFrame(() => {
+            if (!this.currentRectDiv) {
+              this.isRafPending = false;
+              return;
+            }
+            const width = Math.abs(this.latestX - this.startX);
+            const height = Math.abs(this.latestY - this.startY);
+            const left = Math.min(this.latestX, this.startX);
+            const top = Math.min(this.latestY, this.startY);
+            this.currentRectDiv.style.left = `${left}px`;
+            this.currentRectDiv.style.top = `${top}px`;
+            this.currentRectDiv.style.width = `${width}px`;
+            this.currentRectDiv.style.height = `${height}px`;
+            this.currentRectParams = { x: left, y: top, width, height };
+            this.updateDimming();
+            this.isRafPending = false;
+          });
+        }
       });
       this.overlay.addEventListener("mouseup", () => {
         if (!this.isDrawing) return;

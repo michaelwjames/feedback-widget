@@ -1,0 +1,3 @@
+## 2024-03-05 - Prevent Layout Thrashing on Mousemove
+**Learning:** In the frontend widget UI, performing synchronous DOM style updates during `mousemove` events (like updating `left`, `top`, `width`, `height` in `Overlay.ts` or setting `transform` in `Toolbar.ts`) can cause severe layout thrashing and stuttering performance on low-end devices or large pages. The browser attempts to recalculate layout and repaint multiple times per frame.
+**Action:** Always throttle high-frequency DOM style updates triggered by pointer/mouse events (e.g., drag or draw operations) using `window.requestAnimationFrame`. This ensures the style recalculations happen at most once per display refresh cycle, improving rendering performance and maintaining functional fidelity.

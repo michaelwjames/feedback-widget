@@ -22,6 +22,9 @@ export class Toolbar {
   private initialY = 0;
   private xOffset = 0;
   private yOffset = 0;
+  private isRafPending = false;
+  private latestX = 0;
+  private latestY = 0;
 
   constructor(private callbacks: ToolbarCallbacks) {
     this.container = document.createElement('div');
@@ -207,13 +210,28 @@ export class Toolbar {
     if (!this.isDragging) return;
 
     e.preventDefault();
-    this.currentX = e.clientX - this.initialX;
-    this.currentY = e.clientY - this.initialY;
 
-    this.xOffset = this.currentX;
-    this.yOffset = this.currentY;
+    // Always store latest coordinates so they aren't lost if rAF is pending
+    this.latestX = e.clientX;
+    this.latestY = e.clientY;
 
-    this.setTranslate(this.currentX, this.currentY, this.container);
+    // ⚡ Bolt: Throttling high-frequency DOM style updates during dragging using requestAnimationFrame
+    // 🎯 Why: Dragging causes rapid mousemove events; synchronously translating DOM elements causes layout thrashing
+    // 📊 Impact: Improves UI responsiveness and frame rate when moving the toolbar
+    if (!this.isRafPending) {
+      this.isRafPending = true;
+      window.requestAnimationFrame(() => {
+        // Use the most recent coordinates captured from the event loop
+        this.currentX = this.latestX - this.initialX;
+        this.currentY = this.latestY - this.initialY;
+
+        this.xOffset = this.currentX;
+        this.yOffset = this.currentY;
+
+        this.setTranslate(this.currentX, this.currentY, this.container);
+        this.isRafPending = false;
+      });
+    }
   }
 
   private setTranslate(xPos: number, yPos: number, el: HTMLElement) {

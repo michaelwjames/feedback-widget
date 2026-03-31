@@ -15,6 +15,9 @@ export class Overlay {
   private rects: { div: HTMLDivElement, params: RectParams }[] = [];
   private dimmingSvg: SVGSVGElement;
   private dimmingPath: SVGPathElement;
+  private isRafPending: boolean = false;
+  private latestX: number = 0;
+  private latestY: number = 0;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -79,21 +82,36 @@ export class Overlay {
     this.overlay.addEventListener('mousemove', (e: MouseEvent) => {
       if (!this.isDrawing || !this.currentRectDiv) return;
 
-      const currentX = e.clientX;
-      const currentY = e.clientY;
+      // Always capture the latest coordinates on every move event
+      this.latestX = e.clientX;
+      this.latestY = e.clientY;
 
-      const width = Math.abs(currentX - this.startX);
-      const height = Math.abs(currentY - this.startY);
-      const left = Math.min(currentX, this.startX);
-      const top = Math.min(currentY, this.startY);
+      // ⚡ Bolt: Throttling high-frequency DOM style updates during drawing using requestAnimationFrame
+      // 🎯 Why: Prevents severe layout thrashing by ensuring styles are only updated once per render frame
+      // 📊 Impact: Significantly smooths drawing performance and reduces CPU load on complex pages
+      if (!this.isRafPending) {
+        this.isRafPending = true;
+        window.requestAnimationFrame(() => {
+          if (!this.currentRectDiv) {
+            this.isRafPending = false;
+            return;
+          }
+          // Use the most recent coordinates captured from the event loop
+          const width = Math.abs(this.latestX - this.startX);
+          const height = Math.abs(this.latestY - this.startY);
+          const left = Math.min(this.latestX, this.startX);
+          const top = Math.min(this.latestY, this.startY);
 
-      this.currentRectDiv.style.left = `${left}px`;
-      this.currentRectDiv.style.top = `${top}px`;
-      this.currentRectDiv.style.width = `${width}px`;
-      this.currentRectDiv.style.height = `${height}px`;
+          this.currentRectDiv.style.left = `${left}px`;
+          this.currentRectDiv.style.top = `${top}px`;
+          this.currentRectDiv.style.width = `${width}px`;
+          this.currentRectDiv.style.height = `${height}px`;
 
-      this.currentRectParams = { x: left, y: top, width, height };
-      this.updateDimming();
+          this.currentRectParams = { x: left, y: top, width, height };
+          this.updateDimming();
+          this.isRafPending = false;
+        });
+      }
     });
 
     this.overlay.addEventListener('mouseup', () => {
