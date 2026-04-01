@@ -1,0 +1,4 @@
+## 2024-05-15 - [CRITICAL] Path Traversal via startsWith()
+**Vulnerability:** A path traversal vulnerability existed in `backend/src/controllers/feedbackController.ts` where `absolutePath.startsWith(feedbackRoot)` was used to restrict file downloads to `feedbackDir`.
+**Learning:** `startsWith` is insufficient for directory boundary checks because an attacker could provide a path like `/path/to/feedbackDir-fake/` and `startsWith` would incorrectly return true, even though it's outside the actual `feedbackDir`.
+**Prevention:** Always use `path.relative` to enforce directory boundaries and check that the resulting relative path does not start with `..` and is not absolute: `relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)`.
