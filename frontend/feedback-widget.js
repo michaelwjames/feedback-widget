@@ -154,6 +154,7 @@
       __publicField(this, "initialY", 0);
       __publicField(this, "xOffset", 0);
       __publicField(this, "yOffset", 0);
+      __publicField(this, "dragAnimationFrame", null);
       this.container = document.createElement("div");
       this.container.id = "fw-toolbar";
       this.container.style.cssText = `
@@ -306,11 +307,18 @@
     drag(e) {
       if (!this.isDragging) return;
       e.preventDefault();
-      this.currentX = e.clientX - this.initialX;
-      this.currentY = e.clientY - this.initialY;
-      this.xOffset = this.currentX;
-      this.yOffset = this.currentY;
-      this.setTranslate(this.currentX, this.currentY, this.container);
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      if (this.dragAnimationFrame === null) {
+        this.dragAnimationFrame = window.requestAnimationFrame(() => {
+          this.currentX = clientX - this.initialX;
+          this.currentY = clientY - this.initialY;
+          this.xOffset = this.currentX;
+          this.yOffset = this.currentY;
+          this.setTranslate(this.currentX, this.currentY, this.container);
+          this.dragAnimationFrame = null;
+        });
+      }
     }
     setTranslate(xPos, yPos, el) {
       el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
@@ -335,6 +343,7 @@
       __publicField(this, "rects", []);
       __publicField(this, "dimmingSvg");
       __publicField(this, "dimmingPath");
+      __publicField(this, "drawAnimationFrame", null);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
@@ -385,16 +394,23 @@
         if (!this.isDrawing || !this.currentRectDiv) return;
         const currentX = e.clientX;
         const currentY = e.clientY;
-        const width = Math.abs(currentX - this.startX);
-        const height = Math.abs(currentY - this.startY);
-        const left = Math.min(currentX, this.startX);
-        const top = Math.min(currentY, this.startY);
-        this.currentRectDiv.style.left = `${left}px`;
-        this.currentRectDiv.style.top = `${top}px`;
-        this.currentRectDiv.style.width = `${width}px`;
-        this.currentRectDiv.style.height = `${height}px`;
-        this.currentRectParams = { x: left, y: top, width, height };
-        this.updateDimming();
+        if (this.drawAnimationFrame === null) {
+          this.drawAnimationFrame = window.requestAnimationFrame(() => {
+            const width = Math.abs(currentX - this.startX);
+            const height = Math.abs(currentY - this.startY);
+            const left = Math.min(currentX, this.startX);
+            const top = Math.min(currentY, this.startY);
+            if (this.currentRectDiv) {
+              this.currentRectDiv.style.left = `${left}px`;
+              this.currentRectDiv.style.top = `${top}px`;
+              this.currentRectDiv.style.width = `${width}px`;
+              this.currentRectDiv.style.height = `${height}px`;
+            }
+            this.currentRectParams = { x: left, y: top, width, height };
+            this.updateDimming();
+            this.drawAnimationFrame = null;
+          });
+        }
       });
       this.overlay.addEventListener("mouseup", () => {
         if (!this.isDrawing) return;
