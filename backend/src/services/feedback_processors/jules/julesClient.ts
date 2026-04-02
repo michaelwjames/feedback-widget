@@ -19,6 +19,15 @@ export class JulesClient {
         });
     }
 
+    private buildPath(collection: string, nameOrId: string, action?: string): string {
+        const prefix = `${collection}/`;
+        let path = nameOrId.startsWith(prefix) ? `/${nameOrId}` : `/${prefix}${nameOrId}`;
+        if (action) {
+            path += `:${action}`;
+        }
+        return path;
+    }
+
     async listSources(pageSize: number = 30, pageToken?: string, filterExpr?: string): Promise<any> {
         const params: any = { pageSize };
         if (pageToken) params.pageToken = pageToken;
@@ -34,7 +43,8 @@ export class JulesClient {
 
     async getSource(sourceId: string): Promise<any> {
         try {
-            const response = await this.client.get(`/sources/${sourceId}`);
+            const path = this.buildPath('sources', sourceId);
+            const response = await this.client.get(path);
             return response.data;
         } catch (error: any) {
             this.handleError("Error getting source", error);
@@ -79,10 +89,13 @@ export class JulesClient {
         if (title) payload.title = title;
 
         if (sourceId) {
+            // FIX: Ensure sourceId has 'sources/' prefix as required by the API
+            const fullSourceId = sourceId.startsWith('sources/') ? sourceId : `sources/${sourceId}`;
+            
             payload.sourceContext = {
-                source: sourceId,
+                source: fullSourceId,
                 githubRepoContext: {
-                    startingBranch: startingBranch
+                    startingBranch: startingBranch || "main"
                 }
             };
             if (!title) {
@@ -120,7 +133,8 @@ export class JulesClient {
 
     async getSession(sessionId: string): Promise<any> {
         try {
-            const response = await this.client.get(`/sessions/${sessionId}`);
+            const path = this.buildPath('sessions', sessionId);
+            const response = await this.client.get(path);
             return response.data;
         } catch (error: any) {
             this.handleError("Error getting session", error);
@@ -129,7 +143,8 @@ export class JulesClient {
 
     async deleteSession(sessionId: string): Promise<boolean> {
         try {
-            await this.client.delete(`/sessions/${sessionId}`);
+            const path = this.buildPath('sessions', sessionId);
+            await this.client.delete(path);
             return true;
         } catch (error: any) {
             this.handleError("Error deleting session", error);
@@ -139,7 +154,8 @@ export class JulesClient {
 
     async sendMessage(sessionId: string, message: string): Promise<any> {
         try {
-            const response = await this.client.post(`/sessions/${sessionId}:sendMessage`, { prompt: message });
+            const path = this.buildPath('sessions', sessionId, 'sendMessage');
+            const response = await this.client.post(path, { prompt: message });
             return response.data;
         } catch (error: any) {
             this.handleError("Error sending message", error);
@@ -148,7 +164,8 @@ export class JulesClient {
 
     async approvePlan(sessionId: string): Promise<any> {
         try {
-            const response = await this.client.post(`/sessions/${sessionId}:approvePlan`, {});
+            const path = this.buildPath('sessions', sessionId, 'approvePlan');
+            const response = await this.client.post(path, {});
             return response.data;
         } catch (error: any) {
             this.handleError("Error approving plan", error);
@@ -161,7 +178,9 @@ export class JulesClient {
         if (createTime) params.createTime = createTime;
 
         try {
-            const response = await this.client.get(`/sessions/${sessionId}/activities`, { params });
+            const basePath = this.buildPath('sessions', sessionId);
+            const path = `${basePath}/activities`;
+            const response = await this.client.get(path, { params });
             return response.data;
         } catch (error: any) {
             this.handleError("Error listing activities", error);
@@ -170,7 +189,9 @@ export class JulesClient {
 
     async getActivity(sessionId: string, activityId: string): Promise<any> {
         try {
-            const response = await this.client.get(`/sessions/${sessionId}/activities/${activityId}`);
+            const basePath = this.buildPath('sessions', sessionId);
+            const path = `${basePath}/activities/${activityId}`;
+            const response = await this.client.get(path);
             return response.data;
         } catch (error: any) {
             this.handleError("Error getting activity", error);
