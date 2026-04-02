@@ -15,6 +15,7 @@ export class Overlay {
   private rects: { div: HTMLDivElement, params: RectParams }[] = [];
   private dimmingSvg: SVGSVGElement;
   private dimmingPath: SVGPathElement;
+  private drawAnimationFrame: number | null = null;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -82,18 +83,25 @@ export class Overlay {
       const currentX = e.clientX;
       const currentY = e.clientY;
 
-      const width = Math.abs(currentX - this.startX);
-      const height = Math.abs(currentY - this.startY);
-      const left = Math.min(currentX, this.startX);
-      const top = Math.min(currentY, this.startY);
+      if (this.drawAnimationFrame === null) {
+        this.drawAnimationFrame = window.requestAnimationFrame(() => {
+          const width = Math.abs(currentX - this.startX);
+          const height = Math.abs(currentY - this.startY);
+          const left = Math.min(currentX, this.startX);
+          const top = Math.min(currentY, this.startY);
 
-      this.currentRectDiv.style.left = `${left}px`;
-      this.currentRectDiv.style.top = `${top}px`;
-      this.currentRectDiv.style.width = `${width}px`;
-      this.currentRectDiv.style.height = `${height}px`;
+          if (this.currentRectDiv) {
+            this.currentRectDiv.style.left = `${left}px`;
+            this.currentRectDiv.style.top = `${top}px`;
+            this.currentRectDiv.style.width = `${width}px`;
+            this.currentRectDiv.style.height = `${height}px`;
+          }
 
-      this.currentRectParams = { x: left, y: top, width, height };
-      this.updateDimming();
+          this.currentRectParams = { x: left, y: top, width, height };
+          this.updateDimming();
+          this.drawAnimationFrame = null;
+        });
+      }
     });
 
     this.overlay.addEventListener('mouseup', () => {

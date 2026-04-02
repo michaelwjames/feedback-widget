@@ -207,18 +207,30 @@ export class Toolbar {
     if (!this.isDragging) return;
 
     e.preventDefault();
-    this.currentX = e.clientX - this.initialX;
-    this.currentY = e.clientY - this.initialY;
 
-    this.xOffset = this.currentX;
-    this.yOffset = this.currentY;
+    // Capture latest coordinates outside rAF to prevent stuttering
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    this.setTranslate(this.currentX, this.currentY, this.container);
+    if (this.dragAnimationFrame === null) {
+      this.dragAnimationFrame = window.requestAnimationFrame(() => {
+        this.currentX = clientX - this.initialX;
+        this.currentY = clientY - this.initialY;
+
+        this.xOffset = this.currentX;
+        this.yOffset = this.currentY;
+
+        this.setTranslate(this.currentX, this.currentY, this.container);
+        this.dragAnimationFrame = null;
+      });
+    }
   }
 
   private setTranslate(xPos: number, yPos: number, el: HTMLElement) {
     el.style.transform = `translate3d(calc(-50% + ${xPos}px), ${yPos}px, 0)`;
   }
+
+  private dragAnimationFrame: number | null = null;
 
   private dragEnd() {
     this.initialX = this.currentX;
