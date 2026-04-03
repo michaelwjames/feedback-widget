@@ -54,7 +54,9 @@ describe('FeedbackService', () => {
             if (filepath.includes('metadata.json')) return Promise.resolve(JSON.stringify({ text: 'mock text' }));
             if (filepath.includes('agent_prompt.json')) return Promise.resolve(JSON.stringify({ agent_prompt: 'mock prompt' }));
             if (filepath.includes('screenshot.png')) return Promise.resolve('mockbase64');
-            return Promise.reject(new Error('ENOENT'));
+            const err: any = new Error('ENOENT');
+            err.code = 'ENOENT';
+            return Promise.reject(err);
         });
 
         const result = await feedbackService.triggerProcessor('jules', '/tmp/mock-dir', { option1: 'test' });
@@ -73,14 +75,10 @@ describe('FeedbackService', () => {
 
     it('should throw error if attempting to trigger with invalid feedback files', async () => {
         (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.readFileSync as jest.Mock).mockImplementation((filepath) => {
-            if (filepath.includes('/tmp/missing')) {
-                throw new Error('ENOENT');
-            }
-            return '';
-        });
         (fs.promises.readFile as jest.Mock).mockImplementation((filepath) => {
-             return Promise.reject(new Error('ENOENT'));
+             const error: any = new Error('SOME_OTHER_ERROR');
+             error.code = 'SOME_OTHER_ERROR';
+             return Promise.reject(error);
         });
 
         await expect(feedbackService.triggerProcessor('jules', '/tmp/missing', {}))

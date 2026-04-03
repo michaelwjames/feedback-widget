@@ -28,10 +28,9 @@ export class FeedbackService {
         const timestamp = Date.now();
         const currentFeedbackDir = path.join(config.feedbackDir, timestamp.toString());
 
-        fs.mkdirSync(currentFeedbackDir, { recursive: true });
+        await fs.promises.mkdir(currentFeedbackDir, { recursive: true });
 
         const enrichedMetadata = { ...(metadata || {}), text };
-        fs.writeFileSync(path.join(currentFeedbackDir, 'metadata.json'), JSON.stringify(enrichedMetadata, null, 2), 'utf8');
 
         let markdownContent = `# Feedback ${new Date(timestamp).toLocaleString()}\n\n`;
         markdownContent += `## Message\n\n${text || 'No text provided.'}\n\n`;
@@ -58,16 +57,32 @@ export class FeedbackService {
         let imagePaths: string[] = [];
         let screenshotPath: string = "";
 
+        const writePromises: Promise<void>[] = [];
+
+        // ⚡ Bolt: Write metadata.json concurrently
+        writePromises.push(
+            fs.promises.writeFile(path.join(currentFeedbackDir, 'metadata.json'), JSON.stringify(enrichedMetadata, null, 2), 'utf8')
+        );
+
         if (screenshot) {
             const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
             screenshotPath = path.join(currentFeedbackDir, 'screenshot.png');
-            fs.writeFileSync(screenshotPath, base64Data, 'base64');
+            // ⚡ Bolt: Write screenshot.png concurrently
+            writePromises.push(
+                fs.promises.writeFile(screenshotPath, base64Data, 'base64')
+            );
             imagePaths.push(screenshotPath);
             markdownContent += `## Screenshot\n\n![Screenshot](./screenshot.png)\n`;
         }
 
         const mdPath = path.join(currentFeedbackDir, 'feedback.md');
-        fs.writeFileSync(mdPath, markdownContent, 'utf8');
+        // ⚡ Bolt: Write feedback.md concurrently
+        writePromises.push(
+            fs.promises.writeFile(mdPath, markdownContent, 'utf8')
+        );
+
+        // Wait for all file writes to complete
+        await Promise.all(writePromises);
 
         console.log(`Saved feedback files to ${currentFeedbackDir}.`);
 
