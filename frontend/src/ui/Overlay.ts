@@ -16,6 +16,8 @@ export class Overlay {
   private dimmingSvg: SVGSVGElement;
   private dimmingPath: SVGPathElement;
   private drawAnimationFrame: number | null = null;
+  private latestX = 0;
+  private latestY = 0;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -80,15 +82,15 @@ export class Overlay {
     this.overlay.addEventListener('mousemove', (e: MouseEvent) => {
       if (!this.isDrawing || !this.currentRectDiv) return;
 
-      const currentX = e.clientX;
-      const currentY = e.clientY;
+      this.latestX = e.clientX;
+      this.latestY = e.clientY;
 
       if (this.drawAnimationFrame === null) {
         this.drawAnimationFrame = window.requestAnimationFrame(() => {
-          const width = Math.abs(currentX - this.startX);
-          const height = Math.abs(currentY - this.startY);
-          const left = Math.min(currentX, this.startX);
-          const top = Math.min(currentY, this.startY);
+          const width = Math.abs(this.latestX - this.startX);
+          const height = Math.abs(this.latestY - this.startY);
+          const left = Math.min(this.latestX, this.startX);
+          const top = Math.min(this.latestY, this.startY);
 
           if (this.currentRectDiv) {
             this.currentRectDiv.style.left = `${left}px`;
