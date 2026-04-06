@@ -29,7 +29,7 @@ export class JulesService implements FeedbackProcessor {
             options?.sourceId,
             options?.branch,
             options?.requirePlanApproval,
-            options?.automationMode || "AUTOMATION_MODE_AUTO_CREATE_PR"
+            options?.automationMode || "AUTO_CREATE_PR"
         );
     }
 
