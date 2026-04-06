@@ -56,8 +56,11 @@ export interface VisionAnalysisResult {
 export abstract class VisionProvider {
     abstract runAnalysis(mdFilePath: string, imagePaths: string[], outputPath: string): Promise<VisionAnalysisResult>;
 
-    protected encodeLocalImage(imagePath: string): string {
-        if (!fs.existsSync(imagePath) || !fs.statSync(imagePath).isFile()) {
+    protected async encodeLocalImage(imagePath: string): Promise<string> {
+        try {
+            const stat = await fs.promises.stat(imagePath);
+            if (!stat.isFile()) throw new Error();
+        } catch {
             throw new Error(`Image path does not exist or is not a file: ${imagePath}`);
         }
 
@@ -68,31 +71,31 @@ export abstract class VisionProvider {
         else if (ext === '.gif') mimeType = 'image/gif';
         else if (ext === '.webp') mimeType = 'image/webp';
 
-        const b64 = fs.readFileSync(imagePath).toString('base64');
+        const b64 = await fs.promises.readFile(imagePath, 'base64');
         return `data:${mimeType};base64,${b64}`;
     }
 
-    protected buildImageContents(imageInputs: string[]): any[] {
+    protected async buildImageContents(imageInputs: string[]): Promise<any[]> {
         if (!imageInputs || imageInputs.length === 0) {
             throw new Error("At least one image must be supplied.");
         }
 
-        const contents: any[] = [];
-        for (let raw of imageInputs) {
+        const promises = imageInputs.map(async (raw) => {
             raw = raw.trim();
             let url = raw;
             if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-                url = this.encodeLocalImage(raw);
+                url = await this.encodeLocalImage(raw);
             }
-            contents.push({ type: "image_url", image_url: { url: url } });
-        }
-        return contents;
+            return { type: "image_url", image_url: { url: url } };
+        });
+
+        return Promise.all(promises);
     }
 
-    protected writeJson(outputPath: string, data: any): void {
+    protected async writeJson(outputPath: string, data: any): Promise<void> {
         try {
-            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-            fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
+            await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
+            await fs.promises.writeFile(outputPath, JSON.stringify(data, null, 2), 'utf8');
         } catch (exc) {
             throw new Error(`Failed to write JSON output to ${outputPath}`);
         }

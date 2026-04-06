@@ -6,21 +6,25 @@ import { DEFAULT_MODEL, SYSTEM_PROMPT, VisionAnalysisResult, VisionProvider } fr
 export class GroqVisionProvider extends VisionProvider {
     async runAnalysis(mdFilePath: string, imagePaths: string[], outputPath: string): Promise<VisionAnalysisResult> {
         try {
-            if (!fs.existsSync(mdFilePath)) {
-                throw new Error(`Markdown file does not exist: ${mdFilePath}`);
-            }
+            // ⚡ Bolt: Fetch markdown and images concurrently, replacing synchronous I/O
+            const [mdContent, contents] = await Promise.all([
+                fs.promises.readFile(mdFilePath, 'utf8').catch(() => {
+                    throw new Error(`Markdown file does not exist: ${mdFilePath}`);
+                }),
+                (async () => {
+                    if (imagePaths && imagePaths.length > 0 && imagePaths[0]) {
+                        return this.buildImageContents(imagePaths);
+                    }
+                    return [];
+                })()
+            ]);
 
-            const mdContent = fs.readFileSync(mdFilePath, 'utf8');
             const prompt = `Feedback context markdown:\n${mdContent}\n`;
-
-            let contents: any[] = [];
-            if (imagePaths && imagePaths.length > 0 && imagePaths[0]) {
-                contents = this.buildImageContents(imagePaths);
-            }
 
             const result = await this.callGroq(prompt, contents);
             
-            this.writeJson(outputPath, result);
+            // ⚡ Bolt: Write output asynchronously to avoid blocking main thread
+            await this.writeJson(outputPath, result);
 
             return result;
         } catch (exc: any) {
