@@ -344,6 +344,8 @@
       __publicField(this, "dimmingSvg");
       __publicField(this, "dimmingPath");
       __publicField(this, "drawAnimationFrame", null);
+      __publicField(this, "currentClientX", 0);
+      __publicField(this, "currentClientY", 0);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
@@ -392,14 +394,14 @@
       });
       this.overlay.addEventListener("mousemove", (e) => {
         if (!this.isDrawing || !this.currentRectDiv) return;
-        const currentX = e.clientX;
-        const currentY = e.clientY;
+        this.currentClientX = e.clientX;
+        this.currentClientY = e.clientY;
         if (this.drawAnimationFrame === null) {
           this.drawAnimationFrame = window.requestAnimationFrame(() => {
-            const width = Math.abs(currentX - this.startX);
-            const height = Math.abs(currentY - this.startY);
-            const left = Math.min(currentX, this.startX);
-            const top = Math.min(currentY, this.startY);
+            const width = Math.abs(this.currentClientX - this.startX);
+            const height = Math.abs(this.currentClientY - this.startY);
+            const left = Math.min(this.currentClientX, this.startX);
+            const top = Math.min(this.currentClientY, this.startY);
             if (this.currentRectDiv) {
               this.currentRectDiv.style.left = `${left}px`;
               this.currentRectDiv.style.top = `${top}px`;
