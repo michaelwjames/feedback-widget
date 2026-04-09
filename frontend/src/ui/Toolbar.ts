@@ -22,6 +22,8 @@ export class Toolbar {
   private initialY = 0;
   private xOffset = 0;
   private yOffset = 0;
+  private targetX = 0;
+  private targetY = 0;
 
   constructor(private callbacks: ToolbarCallbacks) {
     this.container = document.createElement('div');
@@ -208,14 +210,16 @@ export class Toolbar {
 
     e.preventDefault();
 
-    // Capture latest coordinates outside rAF to prevent stuttering
-    const clientX = e.clientX;
-    const clientY = e.clientY;
+    // Capture latest coordinates outside rAF on the class instance
+    // This ensures that when the frame renders, it uses the absolute latest
+    // mouse position, preventing layout thrashing and subtle stuttering.
+    this.targetX = e.clientX;
+    this.targetY = e.clientY;
 
     if (this.dragAnimationFrame === null) {
       this.dragAnimationFrame = window.requestAnimationFrame(() => {
-        this.currentX = clientX - this.initialX;
-        this.currentY = clientY - this.initialY;
+        this.currentX = this.targetX - this.initialX;
+        this.currentY = this.targetY - this.initialY;
 
         this.xOffset = this.currentX;
         this.yOffset = this.currentY;
