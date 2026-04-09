@@ -16,6 +16,8 @@ export class Overlay {
   private dimmingSvg: SVGSVGElement;
   private dimmingPath: SVGPathElement;
   private drawAnimationFrame: number | null = null;
+  private targetX: number = 0;
+  private targetY: number = 0;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -80,15 +82,18 @@ export class Overlay {
     this.overlay.addEventListener('mousemove', (e: MouseEvent) => {
       if (!this.isDrawing || !this.currentRectDiv) return;
 
-      const currentX = e.clientX;
-      const currentY = e.clientY;
+      // Capture latest coordinates outside rAF on the class instance
+      // This ensures that when the frame renders, it uses the absolute latest
+      // mouse position, preventing layout thrashing and subtle stuttering.
+      this.targetX = e.clientX;
+      this.targetY = e.clientY;
 
       if (this.drawAnimationFrame === null) {
         this.drawAnimationFrame = window.requestAnimationFrame(() => {
-          const width = Math.abs(currentX - this.startX);
-          const height = Math.abs(currentY - this.startY);
-          const left = Math.min(currentX, this.startX);
-          const top = Math.min(currentY, this.startY);
+          const width = Math.abs(this.targetX - this.startX);
+          const height = Math.abs(this.targetY - this.startY);
+          const left = Math.min(this.targetX, this.startX);
+          const top = Math.min(this.targetY, this.startY);
 
           if (this.currentRectDiv) {
             this.currentRectDiv.style.left = `${left}px`;
