@@ -8,9 +8,6 @@ import { AuthController } from './controllers/authController';
 
 const router = Router();
 
-// Vision Routes
-router.post('/api/vision/analyze', VisionController.runAnalysis);
-
 // Open routes
 router.post('/api/auth/login', AuthController.login);
 router.get('/api/auth/check', AuthController.check);
@@ -26,6 +23,9 @@ router.use('/api', (req, res, next) => {
     }
     AuthController.middleware(req, res, next);
 });
+
+// Vision Routes
+router.post('/api/vision/analyze', VisionController.runAnalysis);
 
 router.get('/api/:processor/defaults', ProcessorController.getDefaults);
 router.get('/api/:processor/personas', ProcessorController.getPersonas);
