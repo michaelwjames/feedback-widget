@@ -10,6 +10,8 @@ export class Overlay {
   private isDrawing: boolean = false;
   private startX: number = 0;
   private startY: number = 0;
+  private targetX: number = 0;
+  private targetY: number = 0;
   private currentRectDiv: HTMLDivElement | null = null;
   private currentRectParams: RectParams | null = null;
   private rects: { div: HTMLDivElement, params: RectParams }[] = [];
@@ -80,15 +82,15 @@ export class Overlay {
     this.overlay.addEventListener('mousemove', (e: MouseEvent) => {
       if (!this.isDrawing || !this.currentRectDiv) return;
 
-      const currentX = e.clientX;
-      const currentY = e.clientY;
+      this.targetX = e.clientX;
+      this.targetY = e.clientY;
 
       if (this.drawAnimationFrame === null) {
         this.drawAnimationFrame = window.requestAnimationFrame(() => {
-          const width = Math.abs(currentX - this.startX);
-          const height = Math.abs(currentY - this.startY);
-          const left = Math.min(currentX, this.startX);
-          const top = Math.min(currentY, this.startY);
+          const width = Math.abs(this.targetX - this.startX);
+          const height = Math.abs(this.targetY - this.startY);
+          const left = Math.min(this.targetX, this.startX);
+          const top = Math.min(this.targetY, this.startY);
 
           if (this.currentRectDiv) {
             this.currentRectDiv.style.left = `${left}px`;
