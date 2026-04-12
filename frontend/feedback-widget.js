@@ -154,6 +154,8 @@
       __publicField(this, "initialY", 0);
       __publicField(this, "xOffset", 0);
       __publicField(this, "yOffset", 0);
+      __publicField(this, "targetClientX", 0);
+      __publicField(this, "targetClientY", 0);
       __publicField(this, "dragAnimationFrame", null);
       this.container = document.createElement("div");
       this.container.id = "fw-toolbar";
@@ -307,12 +309,12 @@
     drag(e) {
       if (!this.isDragging) return;
       e.preventDefault();
-      const clientX = e.clientX;
-      const clientY = e.clientY;
+      this.targetClientX = e.clientX;
+      this.targetClientY = e.clientY;
       if (this.dragAnimationFrame === null) {
         this.dragAnimationFrame = window.requestAnimationFrame(() => {
-          this.currentX = clientX - this.initialX;
-          this.currentY = clientY - this.initialY;
+          this.currentX = this.targetClientX - this.initialX;
+          this.currentY = this.targetClientY - this.initialY;
           this.xOffset = this.currentX;
           this.yOffset = this.currentY;
           this.setTranslate(this.currentX, this.currentY, this.container);
@@ -344,6 +346,8 @@
       __publicField(this, "dimmingSvg");
       __publicField(this, "dimmingPath");
       __publicField(this, "drawAnimationFrame", null);
+      __publicField(this, "targetX", 0);
+      __publicField(this, "targetY", 0);
       this.overlay = document.createElement("div");
       this.overlay.id = "fw-overlay";
       document.body.appendChild(this.overlay);
@@ -392,14 +396,14 @@
       });
       this.overlay.addEventListener("mousemove", (e) => {
         if (!this.isDrawing || !this.currentRectDiv) return;
-        const currentX = e.clientX;
-        const currentY = e.clientY;
+        this.targetX = e.clientX;
+        this.targetY = e.clientY;
         if (this.drawAnimationFrame === null) {
           this.drawAnimationFrame = window.requestAnimationFrame(() => {
-            const width = Math.abs(currentX - this.startX);
-            const height = Math.abs(currentY - this.startY);
-            const left = Math.min(currentX, this.startX);
-            const top = Math.min(currentY, this.startY);
+            const width = Math.abs(this.targetX - this.startX);
+            const height = Math.abs(this.targetY - this.startY);
+            const left = Math.min(this.targetX, this.startX);
+            const top = Math.min(this.targetY, this.startY);
             if (this.currentRectDiv) {
               this.currentRectDiv.style.left = `${left}px`;
               this.currentRectDiv.style.top = `${top}px`;
