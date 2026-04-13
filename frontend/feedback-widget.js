@@ -629,6 +629,49 @@
     }
   };
 
+  // src/utils/settings.ts
+  var SettingsManager = class {
+    static getWidgetSettings() {
+      try {
+        const data = localStorage.getItem(this.WIDGET_SETTINGS_KEY);
+        if (data) {
+          return JSON.parse(data);
+        }
+      } catch (e) {
+        console.error("Failed to parse widget settings", e);
+      }
+      return { defaultTab: "jules", customFields: [] };
+    }
+    static saveWidgetSettings(settings) {
+      try {
+        localStorage.setItem(this.WIDGET_SETTINGS_KEY, JSON.stringify(settings));
+      } catch (e) {
+        console.error("Failed to save widget settings", e);
+      }
+    }
+    static getSiteSettings() {
+      const cookieName = `${this.SITE_SETTINGS_PREFIX}${window.location.hostname}`;
+      const match = document.cookie.match(new RegExp("(^| )" + cookieName + "=([^;]+)"));
+      if (match) {
+        try {
+          const decoded = decodeURIComponent(match[2]);
+          return JSON.parse(decoded);
+        } catch (e) {
+          console.error("Failed to parse site settings cookie", e);
+        }
+      }
+      return { defaultRepo: "", defaultBranch: "", customFields: [] };
+    }
+    static saveSiteSettings(settings) {
+      const cookieName = `${this.SITE_SETTINGS_PREFIX}${window.location.hostname}`;
+      const value = encodeURIComponent(JSON.stringify(settings));
+      const maxAge = 60 * 60 * 24 * 365;
+      document.cookie = `${cookieName}=${value}; max-age=${maxAge}; path=/; SameSite=Lax`;
+    }
+  };
+  __publicField(SettingsManager, "WIDGET_SETTINGS_KEY", "fw_widget_settings");
+  __publicField(SettingsManager, "SITE_SETTINGS_PREFIX", "fw_site_settings_");
+
   // src/ui/Modal.ts
   var Modal = class {
     constructor(callbacks) {
@@ -659,6 +702,15 @@
       __publicField(this, "basePrompt", "");
       __publicField(this, "availableSources", []);
       __publicField(this, "configDefaults", { repos: [], branches: [], personas: [] });
+      // New fields
+      __publicField(this, "customFieldsContainer");
+      __publicField(this, "tabsContainer");
+      __publicField(this, "tabButtons");
+      __publicField(this, "tabContents");
+      __publicField(this, "widgetSettings");
+      __publicField(this, "siteSettings");
+      this.widgetSettings = SettingsManager.getWidgetSettings();
+      this.siteSettings = SettingsManager.getSiteSettings();
       this.container = document.createElement("div");
       this.container.id = "fw-modal-container";
       this.container.innerHTML = `
@@ -681,6 +733,7 @@
                 <div id="fw-input-area">
                     <img id="fw-screenshot-preview" src="" alt="Screenshot preview" />
                     <textarea id="fw-feedback-text" placeholder="Explain the issue or feedback..."></textarea>
+                    <div id="fw-custom-fields-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
                 </div>
 
                 <div id="fw-loading-area">
@@ -697,39 +750,82 @@
                     </div>
                     <textarea id="fw-proposed-prompt" readonly></textarea>
 
-                    <div class="fw-field-group">
-                        <label class="fw-field-label">Target Repository</label>
-                        <div class="fw-input-container">
-                            <select id="fw-repo-select" class="fw-select">
-                                <option value="">Loading sources...</option>
-                            </select>
-                            <button id="fw-refresh-sources" class="fw-refresh-btn" title="Refresh repositories">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <div id="fw-tabs" style="margin-top: 15px;">
+                        <div class="fw-tab-headers" style="display: flex; border-bottom: 1px solid #e2e8f0; margin-bottom: 10px;">
+                            <button class="fw-tab-btn active" data-target="tab-jules">Jules</button>
+                            <button class="fw-tab-btn" data-target="tab-linear">Linear</button>
+                            <button class="fw-tab-btn" data-target="tab-widget-settings">Widget Settings</button>
+                            <button class="fw-tab-btn" data-target="tab-site-settings">Site Settings</button>
+                        </div>
+
+                        <div id="tab-jules" class="fw-tab-content active">
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Target Repository</label>
+                                <div class="fw-input-container">
+                                    <select id="fw-repo-select" class="fw-select">
+                                        <option value="">Loading sources...</option>
+                                    </select>
+                                    <button id="fw-refresh-sources" class="fw-refresh-btn" title="Refresh repositories">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Target Branch</label>
+                                <select id="fw-branch-select" class="fw-select">
+                                    <option value="">Select a repository first</option>
+                                </select>
+                            </div>
+
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Agent Persona</label>
+                                <div class="fw-input-container">
+                                    <select id="fw-persona-select" class="fw-select">
+                                        <option value="">Loading personas...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab-linear" class="fw-tab-content" style="display: none;">
+                            <button id="fw-send-to-linear" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg>
+                            Create Linear Issue
                             </button>
                         </div>
-                    </div>
 
-                    <div class="fw-field-group">
-                        <label class="fw-field-label">Target Branch</label>
-                        <select id="fw-branch-select" class="fw-select">
-                            <option value="">Select a repository first</option>
-                        </select>
-                    </div>
-
-                    <div class="fw-field-group">
-                        <label class="fw-field-label">Agent Persona</label>
-                        <div class="fw-input-container">
-                            <select id="fw-persona-select" class="fw-select">
-                                <option value="">Loading personas...</option>
-                            </select>
+                        <div id="tab-widget-settings" class="fw-tab-content" style="display: none; max-height: 300px; overflow-y: auto;">
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Default Processor Tab</label>
+                                <select id="fw-default-tab-select" class="fw-select">
+                                    <option value="jules">Jules</option>
+                                    <option value="linear">Linear</option>
+                                </select>
+                            </div>
+                            <div style="margin-top: 15px; font-weight: bold; font-size: 14px;">Global Custom Fields</div>
+                            <div id="fw-global-fields-list" style="margin-top: 10px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px;"></div>
+                            <button id="fw-add-global-field" class="fw-btn fw-btn-secondary" style="margin-top: 10px; font-size: 12px; padding: 4px 8px;">+ Add Field</button>
+                            <button id="fw-save-widget-settings" class="fw-btn" style="margin-top: 15px; width: 100%;">Save Widget Settings</button>
                         </div>
-                    </div>
 
+                        <div id="tab-site-settings" class="fw-tab-content" style="display: none; max-height: 300px; overflow-y: auto;">
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Default Repo for this Site</label>
+                                <input type="text" id="fw-site-repo-input" class="fw-select" placeholder="e.g. org/repo" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;"/>
+                            </div>
+                            <div class="fw-field-group">
+                                <label class="fw-field-label">Default Branch for this Site</label>
+                                <input type="text" id="fw-site-branch-input" class="fw-select" placeholder="e.g. main" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;"/>
+                            </div>
+                            <div style="margin-top: 15px; font-weight: bold; font-size: 14px;">Site Custom Fields</div>
+                            <div id="fw-site-fields-list" style="margin-top: 10px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px;"></div>
+                            <button id="fw-add-site-field" class="fw-btn fw-btn-secondary" style="margin-top: 10px; font-size: 12px; padding: 4px 8px;">+ Add Field</button>
+                            <button id="fw-save-site-settings" class="fw-btn" style="margin-top: 15px; width: 100%;">Save Site Settings</button>
+                        </div>
+
+                    </div>
                     <button id="fw-download-zip" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%;">Download Feedback as ZIP</button>
-                    <button id="fw-send-to-linear" class="fw-btn fw-btn-secondary" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg>
-                      Send to Linear
-                    </button>
                     <div id="fw-success-container"></div>
                 </div>
             </div>
@@ -761,7 +857,13 @@
       this.refreshReposBtn = this.container.querySelector("#fw-refresh-sources");
       this.downloadBtn = this.container.querySelector("#fw-download-zip");
       this.sendLinearBtn = this.container.querySelector("#fw-send-to-linear");
+      this.customFieldsContainer = this.container.querySelector("#fw-custom-fields-container");
+      this.tabsContainer = this.container.querySelector("#fw-tabs");
+      this.tabButtons = this.container.querySelectorAll(".fw-tab-btn");
+      this.tabContents = this.container.querySelectorAll(".fw-tab-content");
       this.attachEvents();
+      this.renderInputCustomFields();
+      this.renderSettingsTabs();
     }
     attachEvents() {
       this.closeBtn.addEventListener("click", this.callbacks.onClose);
@@ -774,7 +876,6 @@
           feedbackDir: "",
           // This will be handled in index.ts
           title: ""
-          // Could add a field for title if needed
         });
       });
       this.editPromptBtn.addEventListener("click", () => {
@@ -799,7 +900,8 @@
         if (this.submitBtn.innerText === "Login") {
           this.callbacks.onLogin(this.passwordInput.value);
         } else if (this.submitBtn.innerText === "Analyze Feedback") {
-          this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src);
+          const customFields = this.gatherInputCustomFields();
+          this.callbacks.onSubmitAnalyze(this.textArea.value, this.previewImg.src, customFields);
         } else if (this.submitBtn.innerText === "Send to Jules") {
           this.callbacks.onSubmitSend({
             sourceId: this.repoSelect.value,
@@ -809,7 +911,185 @@
           });
         }
       });
+      this.tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          this.tabButtons.forEach((b) => b.classList.remove("active"));
+          this.tabContents.forEach((c) => c.style.display = "none");
+          btn.classList.add("active");
+          const targetId = btn.getAttribute("data-target");
+          if (targetId) {
+            const targetEl = this.container.querySelector(`#${targetId}`);
+            if (targetEl) targetEl.style.display = "block";
+            if (targetId === "tab-jules") {
+              this.submitBtn.innerText = "Send to Jules";
+              this.submitBtn.style.display = "inline-block";
+            } else if (targetId === "tab-linear") {
+              this.submitBtn.style.display = "none";
+            } else {
+              this.submitBtn.style.display = "none";
+            }
+          }
+        });
+      });
+      const saveWidgetBtn = this.container.querySelector("#fw-save-widget-settings");
+      saveWidgetBtn.addEventListener("click", () => this.saveWidgetSettings());
+      const saveSiteBtn = this.container.querySelector("#fw-save-site-settings");
+      saveSiteBtn.addEventListener("click", () => this.saveSiteSettings());
+      const addGlobalFieldBtn = this.container.querySelector("#fw-add-global-field");
+      addGlobalFieldBtn.addEventListener("click", () => this.renderFieldEditor(this.container.querySelector("#fw-global-fields-list"), null, true));
+      const addSiteFieldBtn = this.container.querySelector("#fw-add-site-field");
+      addSiteFieldBtn.addEventListener("click", () => this.renderFieldEditor(this.container.querySelector("#fw-site-fields-list"), null, false));
     }
+    renderInputCustomFields() {
+      this.customFieldsContainer.innerHTML = "";
+      const allFields = [...this.widgetSettings.customFields, ...this.siteSettings.customFields];
+      allFields.forEach((field) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "fw-field-group";
+        wrapper.style.marginBottom = "0";
+        const label = document.createElement("label");
+        label.className = "fw-field-label";
+        label.innerText = field.name;
+        wrapper.appendChild(label);
+        if (field.type === "dropdown" && field.options) {
+          const select = document.createElement("select");
+          select.className = "fw-select fw-custom-field-input";
+          select.dataset.id = field.id;
+          field.options.forEach((opt) => {
+            const option = document.createElement("option");
+            option.value = opt;
+            option.innerText = opt;
+            select.appendChild(option);
+          });
+          wrapper.appendChild(select);
+        } else {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "fw-select fw-custom-field-input";
+          input.dataset.id = field.id;
+          input.style.width = "100%";
+          input.style.boxSizing = "border-box";
+          input.style.padding = "8px";
+          input.style.border = "1px solid #cbd5e0";
+          input.style.borderRadius = "4px";
+          wrapper.appendChild(input);
+        }
+        this.customFieldsContainer.appendChild(wrapper);
+      });
+    }
+    gatherInputCustomFields() {
+      const inputs = this.customFieldsContainer.querySelectorAll(".fw-custom-field-input");
+      const allFields = [...this.widgetSettings.customFields, ...this.siteSettings.customFields];
+      const result = [];
+      inputs.forEach((input) => {
+        const id = input.dataset.id;
+        const fieldDef = allFields.find((f) => f.id === id);
+        if (fieldDef) {
+          result.push({
+            name: fieldDef.name,
+            value: input.value,
+            includeInVision: fieldDef.includeInVision,
+            includeInAgent: fieldDef.includeInAgent
+          });
+        }
+      });
+      return result;
+    }
+    renderSettingsTabs() {
+      const defaultTabSelect = this.container.querySelector("#fw-default-tab-select");
+      defaultTabSelect.value = this.widgetSettings.defaultTab;
+      const globalList = this.container.querySelector("#fw-global-fields-list");
+      globalList.innerHTML = "";
+      this.widgetSettings.customFields.forEach((f) => this.renderFieldEditor(globalList, f, true));
+      const siteRepoInput = this.container.querySelector("#fw-site-repo-input");
+      siteRepoInput.value = this.siteSettings.defaultRepo;
+      const siteBranchInput = this.container.querySelector("#fw-site-branch-input");
+      siteBranchInput.value = this.siteSettings.defaultBranch;
+      const siteList = this.container.querySelector("#fw-site-fields-list");
+      siteList.innerHTML = "";
+      this.siteSettings.customFields.forEach((f) => this.renderFieldEditor(siteList, f, false));
+    }
+    renderFieldEditor(container, field, isGlobal) {
+      const id = field ? field.id : `field_${Date.now()}`;
+      const wrapper = document.createElement("div");
+      wrapper.className = `fw-field-editor ${isGlobal ? "fw-global-field" : "fw-site-field"}`;
+      wrapper.dataset.id = id;
+      wrapper.style.cssText = "border: 1px dashed #cbd5e0; padding: 10px; margin-bottom: 10px; position: relative;";
+      const deleteBtn = document.createElement("button");
+      deleteBtn.innerHTML = "&times;";
+      deleteBtn.style.cssText = "position: absolute; top: 5px; right: 5px; background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 16px;";
+      deleteBtn.onclick = () => wrapper.remove();
+      wrapper.appendChild(deleteBtn);
+      wrapper.innerHTML += `
+          <div style="margin-bottom: 5px;">
+              <input type="text" class="fw-field-name" placeholder="Field Name" value="${field ? field.name : ""}" style="width: 100%; box-sizing: border-box; padding: 4px; margin-bottom: 5px;"/>
+          </div>
+          <div style="margin-bottom: 5px;">
+              <select class="fw-field-type" style="width: 100%; padding: 4px;">
+                  <option value="text" ${field && field.type === "text" ? "selected" : ""}>Text Input</option>
+                  <option value="dropdown" ${field && field.type === "dropdown" ? "selected" : ""}>Dropdown</option>
+              </select>
+          </div>
+          <div class="fw-field-options-container" style="${field && field.type === "dropdown" ? "display: block;" : "display: none;"} margin-bottom: 5px;">
+              <input type="text" class="fw-field-options" placeholder="Comma separated options" value="${field && field.options ? field.options.join(",") : ""}" style="width: 100%; box-sizing: border-box; padding: 4px;"/>
+          </div>
+          <div style="font-size: 12px; margin-bottom: 5px;">
+              <label><input type="checkbox" class="fw-field-vision" ${!field || field.includeInVision ? "checked" : ""} /> Include in Vision Agent</label>
+          </div>
+          <div style="font-size: 12px;">
+              <label><input type="checkbox" class="fw-field-agent" ${!field || field.includeInAgent ? "checked" : ""} /> Include in Jules Prompt</label>
+          </div>
+      `;
+      const typeSelect = wrapper.querySelector(".fw-field-type");
+      const optsContainer = wrapper.querySelector(".fw-field-options-container");
+      const newDeleteBtn = document.createElement("button");
+      newDeleteBtn.innerHTML = "&times;";
+      newDeleteBtn.style.cssText = "position: absolute; top: 5px; right: 5px; background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 16px;";
+      newDeleteBtn.onclick = () => wrapper.remove();
+      wrapper.appendChild(newDeleteBtn);
+      typeSelect.addEventListener("change", () => {
+        optsContainer.style.display = typeSelect.value === "dropdown" ? "block" : "none";
+      });
+      container.appendChild(wrapper);
+    }
+    gatherFieldEditors(containerSelector) {
+      const wrappers = this.container.querySelectorAll(`${containerSelector} .fw-field-editor`);
+      const fields = [];
+      wrappers.forEach((w) => {
+        const name = w.querySelector(".fw-field-name").value.trim();
+        if (!name) return;
+        const type = w.querySelector(".fw-field-type").value;
+        const optsInput = w.querySelector(".fw-field-options").value;
+        const options = type === "dropdown" ? optsInput.split(",").map((s) => s.trim()).filter((s) => s) : void 0;
+        fields.push({
+          id: w.dataset.id,
+          name,
+          type,
+          options,
+          includeInVision: w.querySelector(".fw-field-vision").checked,
+          includeInAgent: w.querySelector(".fw-field-agent").checked
+        });
+      });
+      return fields;
+    }
+    saveWidgetSettings() {
+      const defaultTab = this.container.querySelector("#fw-default-tab-select").value;
+      const fields = this.gatherFieldEditors("#fw-global-fields-list");
+      this.widgetSettings = { defaultTab, customFields: fields };
+      SettingsManager.saveWidgetSettings(this.widgetSettings);
+      this.renderInputCustomFields();
+      alert("Widget settings saved");
+    }
+    saveSiteSettings() {
+      const defaultRepo = this.container.querySelector("#fw-site-repo-input").value.trim();
+      const defaultBranch = this.container.querySelector("#fw-site-branch-input").value.trim();
+      const fields = this.gatherFieldEditors("#fw-site-fields-list");
+      this.siteSettings = { defaultRepo, defaultBranch, customFields: fields };
+      SettingsManager.saveSiteSettings(this.siteSettings);
+      this.renderInputCustomFields();
+      alert("Site settings saved");
+    }
+    // Rest of Modal methods
     setLoginRequired() {
       this.container.style.display = "flex";
       this.loginArea.style.display = "flex";
@@ -887,7 +1167,20 @@ ${prompt.INSTRUCTIONS || ""}`;
       this.updatePromptPreview();
       this.loadingArea.style.display = "none";
       this.resultArea.style.display = "flex";
-      this.submitBtn.innerText = "Send to Jules";
+      const defaultTarget = `tab-${this.widgetSettings.defaultTab}`;
+      this.tabButtons.forEach((b) => {
+        b.classList.remove("active");
+        if (b.getAttribute("data-target") === defaultTarget) b.classList.add("active");
+      });
+      this.tabContents.forEach((c) => c.style.display = "none");
+      const targetEl = this.container.querySelector(`#${defaultTarget}`);
+      if (targetEl) targetEl.style.display = "block";
+      if (this.widgetSettings.defaultTab === "jules") {
+        this.submitBtn.innerText = "Send to Jules";
+        this.submitBtn.style.display = "inline-block";
+      } else {
+        this.submitBtn.style.display = "none";
+      }
       this.submitBtn.disabled = false;
       this.cancelBtn.style.display = "inline-block";
     }
@@ -937,16 +1230,20 @@ ${prompt.INSTRUCTIONS || ""}`;
       this.availableSources = sources;
       const defaults = [];
       const others = [];
-      if (this.configDefaults.repos) {
-        this.configDefaults.repos.forEach((repoId) => {
+      const configRepos = [...this.configDefaults.repos];
+      if (this.siteSettings.defaultRepo && !configRepos.includes(this.siteSettings.defaultRepo)) {
+        configRepos.unshift(this.siteSettings.defaultRepo);
+      }
+      if (configRepos.length > 0) {
+        configRepos.forEach((repoId) => {
           const found = sources.find((s) => s.name.replace("sources/", "") === repoId);
           if (found) defaults.push(found);
         });
       }
-      if (this.configDefaults.repos) {
+      if (configRepos.length > 0) {
         sources.forEach((s) => {
           const id = s.name.replace("sources/", "");
-          if (!this.configDefaults.repos.includes(id)) {
+          if (!configRepos.includes(id)) {
             others.push(s);
           }
         });
@@ -1020,23 +1317,30 @@ ${prompt.INSTRUCTIONS || ""}`;
         return;
       }
       const branches = source.githubRepo.branches || [];
-      const defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : "dev";
+      let defaultBranch = source.githubRepo.defaultBranch ? source.githubRepo.defaultBranch.displayName : "dev";
+      if (this.siteSettings.defaultBranch && branches.find((b) => b.displayName === this.siteSettings.defaultBranch)) {
+        defaultBranch = this.siteSettings.defaultBranch;
+      }
       if (branches.length === 0) {
         this.branchSelect.innerHTML = `<option value="${defaultBranch}">${defaultBranch}</option>`;
         return;
       }
       const defaults = [];
       const others = [];
-      if (this.configDefaults.branches) {
-        this.configDefaults.branches.forEach((branchName) => {
+      const configBranches = [...this.configDefaults.branches];
+      if (this.siteSettings.defaultBranch && !configBranches.includes(this.siteSettings.defaultBranch)) {
+        configBranches.unshift(this.siteSettings.defaultBranch);
+      }
+      if (configBranches.length > 0) {
+        configBranches.forEach((branchName) => {
           const found = branches.find((b) => b.displayName === branchName);
           if (found) defaults.push(found);
         });
       }
-      if (this.configDefaults.branches) {
+      if (configBranches.length > 0) {
         branches.forEach((b) => {
           const name = b.displayName;
-          if (!this.configDefaults.branches.includes(name)) {
+          if (!configBranches.includes(name)) {
             others.push(b);
           }
         });
@@ -1211,12 +1515,141 @@ ${prompt.INSTRUCTIONS || ""}`;
   __publicField(_ScreenshotUtil, "loadPromise", null);
   var ScreenshotUtil = _ScreenshotUtil;
 
+  // src/utils/consoleCapture.ts
+  var _ConsoleCapture = class _ConsoleCapture {
+    constructor() {
+      __publicField(this, "logs", []);
+      __publicField(this, "maxLogs", 100);
+      __publicField(this, "lastLog", null);
+      __publicField(this, "repeatCount", 0);
+      __publicField(this, "originalLog", console.log);
+      __publicField(this, "originalWarn", console.warn);
+      __publicField(this, "originalError", console.error);
+      __publicField(this, "originalInfo", console.info);
+      this.interceptConsole();
+    }
+    static getInstance() {
+      if (!_ConsoleCapture.instance) {
+        _ConsoleCapture.instance = new _ConsoleCapture();
+      }
+      return _ConsoleCapture.instance;
+    }
+    interceptConsole() {
+      console.log = this.createInterceptor("LOG", this.originalLog);
+      console.warn = this.createInterceptor("WARN", this.originalWarn);
+      console.error = this.createInterceptor("ERROR", this.originalError);
+      console.info = this.createInterceptor("INFO", this.originalInfo);
+    }
+    createInterceptor(type, originalMethod) {
+      return (...args) => {
+        originalMethod.apply(console, args);
+        const message = args.map((arg) => {
+          if (typeof arg === "object") {
+            try {
+              return JSON.stringify(arg);
+            } catch (e) {
+              return "[Object]";
+            }
+          }
+          return String(arg);
+        }).join(" ");
+        const formattedMessage = `[${type}] ${message}`;
+        if (formattedMessage === this.lastLog) {
+          this.repeatCount++;
+          if (this.logs.length > 0) {
+            this.logs[this.logs.length - 1] = `${formattedMessage} (Repeated ${this.repeatCount + 1} times)`;
+          }
+        } else {
+          this.lastLog = formattedMessage;
+          this.repeatCount = 0;
+          this.logs.push(formattedMessage);
+          if (this.logs.length > this.maxLogs) {
+            this.logs.shift();
+          }
+        }
+      };
+    }
+    getLogs() {
+      return [...this.logs];
+    }
+    clearLogs() {
+      this.logs = [];
+      this.lastLog = null;
+      this.repeatCount = 0;
+    }
+  };
+  __publicField(_ConsoleCapture, "instance");
+  var ConsoleCapture = _ConsoleCapture;
+
+  // src/utils/domCapture.ts
+  var DOMCapture = class {
+    /**
+     * Captures HTML for elements selected via rectangle or comment marker.
+     * Prioritizes rectangles, then comments. Returns empty string if full page is selected.
+     */
+    capture(rects, comments, fullPage) {
+      if (fullPage) {
+        return "";
+      }
+      const targetedElements = /* @__PURE__ */ new Set();
+      comments.forEach((comment) => {
+        const el = document.elementFromPoint(comment.x, comment.y);
+        if (el) {
+          const target = el.parentElement && el.parentElement !== document.body && el.parentElement !== document.documentElement ? el.parentElement : el;
+          targetedElements.add(target);
+        }
+      });
+      if (rects.length > 0) {
+        const allElements = document.querySelectorAll("*");
+        rects.forEach((rect) => {
+          const intersecting = [];
+          allElements.forEach((el) => {
+            if (el.id.startsWith("fw-") || el.classList.contains("fw-selection-rect") || el.tagName.toLowerCase() === "svg") {
+              return;
+            }
+            const bounds = el.getBoundingClientRect();
+            const intersects = !(bounds.right < rect.x || bounds.left > rect.x + rect.width || bounds.bottom < rect.y || bounds.top > rect.y + rect.height);
+            if (intersects && bounds.width > 0 && bounds.height > 0) {
+              intersecting.push(el);
+            }
+          });
+          if (intersecting.length > 0) {
+            intersecting.sort((a, b) => {
+              const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+              const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+              return areaB - areaA;
+            });
+            for (const el of intersecting) {
+              if (el !== document.body && el !== document.documentElement) {
+                targetedElements.add(el);
+                break;
+              }
+            }
+          }
+        });
+      }
+      let snapshot = "";
+      targetedElements.forEach((el) => {
+        let html = el.outerHTML;
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+        html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+        snapshot += html + "\n\n";
+      });
+      snapshot = snapshot.replace(new RegExp('<div[^>]*id="fw-[^>]*>.*?<\\/div>', "gis"), "");
+      snapshot = snapshot.replace(new RegExp('<div[^>]*class="fw-[^>]*>.*?<\\/div>', "gis"), "");
+      return snapshot.trim();
+    }
+  };
+
   // src/index.ts
   (function() {
+    const consoleCapture = ConsoleCapture.getInstance();
     const config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: "http://localhost:12345/api/feedback" };
     const api = new APIClient(config);
     const screenshotUtil = new ScreenshotUtil();
+    const domCapture = new DOMCapture();
     let currentFeedbackDir = null;
+    let currentDomSnapshot = "";
     const toolbar = new Toolbar({
       onModeChanged: (mode) => {
         if (mode === "select") {
@@ -1295,7 +1728,7 @@ ${prompt.INSTRUCTIONS || ""}`;
           window.open(downloadUrl, "_blank");
         }
       },
-      onSubmitAnalyze: (text, screenshotUrl) => __async(null, null, function* () {
+      onSubmitAnalyze: (text, screenshotUrl, customFields) => __async(null, null, function* () {
         modal.setLoading();
         const metadata = {
           url: window.location.href,
@@ -1306,10 +1739,22 @@ ${prompt.INSTRUCTIONS || ""}`;
           screenResolution: `${window.screen.width}x${window.screen.height}`,
           windowSize: `${window.innerWidth}x${window.innerHeight}`,
           timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-          comments: commentOverlay.getComments()
+          comments: commentOverlay.getComments(),
+          consoleLogs: consoleCapture.getLogs(),
+          domSnapshot: currentDomSnapshot,
+          customFields
         };
+        let textForVision = text;
+        const visionFields = customFields.filter((f) => f.includeInVision);
+        if (visionFields.length > 0) {
+          textForVision += "\n\nAdditional Context:\n";
+          visionFields.forEach((f) => {
+            textForVision += `- ${f.name}: ${f.value}
+`;
+          });
+        }
         const payload = {
-          text,
+          text: textForVision,
           screenshot: screenshotUrl,
           metadata
         };
@@ -1371,6 +1816,7 @@ ${prompt.INSTRUCTIONS || ""}`;
     const overlay = new Overlay();
     function processSelection(rects, fullPage) {
       return __async(this, null, function* () {
+        currentDomSnapshot = domCapture.capture(rects, commentOverlay.getComments(), fullPage);
         toolbar.hide();
         overlay.hide();
         commentOverlay.hide();

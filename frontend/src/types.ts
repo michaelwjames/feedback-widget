@@ -19,6 +19,9 @@ export interface FeedbackMetadata {
   windowSize: string;
   timestamp: string;
   comments?: FeedbackComment[];
+  consoleLogs?: string[];
+  domSnapshot?: string;
+  customFields?: { name: string, value: string, includeInVision: boolean, includeInAgent: boolean }[];
 }
 
 export interface FeedbackPayload {

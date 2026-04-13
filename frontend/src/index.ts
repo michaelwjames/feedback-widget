@@ -5,16 +5,23 @@ import { Overlay, RectParams } from './ui/Overlay';
 import { CommentOverlay } from './ui/CommentOverlay';
 import { Modal } from './ui/Modal';
 import { ScreenshotUtil } from './utils/screenshot';
+import { ConsoleCapture } from './utils/consoleCapture';
+import { DOMCapture } from './utils/domCapture';
 import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
 
 (function () {
+  // Initialize console capture immediately
+  const consoleCapture = ConsoleCapture.getInstance();
+
   // Read config
   const config: Config = window.FEEDBACK_WIDGET_CONFIG || { endpoint: 'http://localhost:12345/api/feedback' };
 
   const api = new APIClient(config);
   const screenshotUtil = new ScreenshotUtil();
+  const domCapture = new DOMCapture();
 
   let currentFeedbackDir: string | null = null;
+  let currentDomSnapshot: string = "";
 
   const toolbar = new Toolbar({
     onModeChanged: (mode: ToolbarMode) => {
@@ -106,7 +113,7 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         window.open(downloadUrl, '_blank');
       }
     },
-    onSubmitAnalyze: async (text: string, screenshotUrl: string) => {
+    onSubmitAnalyze: async (text: string, screenshotUrl: string, customFields: { name: string, value: string, includeInVision: boolean, includeInAgent: boolean }[]) => {
       modal.setLoading();
 
       const metadata = {
@@ -118,11 +125,23 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
         screenResolution: `${window.screen.width}x${window.screen.height}`,
         windowSize: `${window.innerWidth}x${window.innerHeight}`,
         timestamp: new Date().toISOString(),
-        comments: commentOverlay.getComments()
+        comments: commentOverlay.getComments(),
+        consoleLogs: consoleCapture.getLogs(),
+        domSnapshot: currentDomSnapshot,
+        customFields: customFields
       };
 
+      let textForVision = text;
+      const visionFields = customFields.filter(f => f.includeInVision);
+      if (visionFields.length > 0) {
+          textForVision += '\n\nAdditional Context:\n';
+          visionFields.forEach(f => {
+              textForVision += `- ${f.name}: ${f.value}\n`;
+          });
+      }
+
       const payload: FeedbackPayload = {
-        text,
+        text: textForVision,
         screenshot: screenshotUrl,
         metadata
       };
@@ -198,6 +217,9 @@ import { Config, FeedbackPayload, JulesPayload, LinearPayload } from './types';
   const overlay = new Overlay();
 
   async function processSelection(rects: RectParams[], fullPage: boolean) {
+    // Capture DOM first while elements are visible and properly structured
+    currentDomSnapshot = domCapture.capture(rects, commentOverlay.getComments(), fullPage);
+
     // Hide UI elements before taking screenshot
     toolbar.hide();
     overlay.hide();

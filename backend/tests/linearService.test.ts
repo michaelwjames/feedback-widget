@@ -26,7 +26,7 @@ describe('LinearService', () => {
     });
 
     it('should create issue and format description without screenshot', async () => {
-    const metadata = { url: '', pathname: '', hostname: '', pageTitle: '', userAgent: '', screenResolution: '', windowSize: '', timestamp: '' };
+        const metadata = { url: '', pathname: '', hostname: '', pageTitle: '', userAgent: '', screenResolution: '', windowSize: '', timestamp: '' };
         const payload = { text: 'basic feedback', screenshot: '', metadata };
         const result = await service.process(payload);
 

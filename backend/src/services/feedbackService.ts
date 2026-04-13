@@ -53,6 +53,33 @@ export class FeedbackService {
                 });
                 markdownContent += `\n`;
             }
+
+            if (metadata.consoleLogs && metadata.consoleLogs.length > 0) {
+                markdownContent += `## Browser Console Logs\n\n`;
+                markdownContent += "```\n";
+                metadata.consoleLogs.forEach((log: string) => {
+                    markdownContent += `${log}\n`;
+                });
+                markdownContent += "```\n\n";
+            }
+
+            if (metadata.domSnapshot) {
+                markdownContent += `## DOM Snapshot\n\n`;
+                markdownContent += "```html\n";
+                markdownContent += `${metadata.domSnapshot}\n`;
+                markdownContent += "```\n\n";
+            }
+
+            if (metadata.customFields) {
+                const agentFields = metadata.customFields.filter((f: any) => f.includeInAgent);
+                if (agentFields.length > 0) {
+                    markdownContent += `## Custom Fields\n\n`;
+                    agentFields.forEach((f: any) => {
+                        markdownContent += `- **${f.name}:** ${f.value}\n`;
+                    });
+                    markdownContent += `\n`;
+                }
+            }
         }
 
         let imagePaths: string[] = [];
