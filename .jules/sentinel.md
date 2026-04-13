@@ -1,0 +1,4 @@
+## 2024-04-02 - Path Traversal Vulnerability in Path Validation
+**Vulnerability:** Directory traversal vulnerability found in `feedbackController.ts` where `startsWith()` was used to validate if a path is within the feedback directory.
+**Learning:** Using `startsWith()` is insecure for path validation because it doesn't respect directory boundaries. For example, `/var/feedback-malicious` starts with `/var/feedback`, potentially allowing access to identically prefixed but unauthorized directories.
+**Prevention:** Use `path.relative()` to calculate the relative path from the root to the target, and strictly check that the resulting path is not absolute and does not traverse up (`..` or `..\`). For example: `const relativePath = path.relative(root, target); if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) { return res.status(403).json({ error: 'Unauthorized path.' }); }`
