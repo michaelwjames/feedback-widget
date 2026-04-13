@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import path from 'path';
+import { config } from '../config';
 import { visionService } from '../services/vision';
 
 /**
@@ -12,6 +14,17 @@ export class VisionController {
 
             if (!mdFilePath || !imagePaths || !outputPath) {
                 return res.status(400).json({ error: 'mdFilePath, imagePaths, and outputPath are required.' });
+            }
+
+            const feedbackRoot = path.resolve(config.feedbackDir);
+
+            const pathsToValidate = [mdFilePath, outputPath, ...imagePaths.filter((p: string) => !p.startsWith('http://') && !p.startsWith('https://'))];
+            for (const p of pathsToValidate) {
+                const absolutePath = path.resolve(p);
+                const relativePath = path.relative(feedbackRoot, absolutePath);
+                if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
+                    return res.status(403).json({ error: 'Unauthorized path.' });
+                }
             }
 
             const result = await visionService.runAnalysis(mdFilePath, imagePaths, outputPath);
