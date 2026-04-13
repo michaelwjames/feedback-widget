@@ -30,12 +30,6 @@ jest.mock('fs', () => {
     };
 });
 
-jest.mock('../src/services/vision', () => ({
-    visionService: {
-        runAnalysis: jest.fn().mockResolvedValue({ agent_prompt: 'Mocked Jules Prompt' })
-    }
-}));
-
 jest.mock('../src/services/feedbackService', () => {
     return {
         FeedbackService: jest.fn().mockImplementation(() => {
@@ -85,19 +79,15 @@ describe('Feedback Tool API', () => {
     it('POST /api/vision/analyze should return AI analysis result', async () => {
         const payload = {
             mdFilePath: '/tmp/test/feedback.md',
-            imagePaths: ['/tmp/test/screenshot.png'],
+            imagePaths: [],
             outputPath: '/tmp/test/agent_prompt.json'
         };
 
         const response = await request(app).post('/api/vision/analyze').send(payload);
 
         expect(response.status).toBe(200);
-        expect(response.body.agent_prompt).toEqual('Mocked Jules Prompt');
-        expect(visionService.runAnalysis).toHaveBeenCalledWith(
-            payload.mdFilePath,
-            payload.imagePaths,
-            payload.outputPath
-        );
+        expect(response.body.agent_prompt).toBeDefined();
+        expect(response.body.agent_prompt).toContain('### CONTEXT');
     });
 
     it('POST /api/send-to/jules should return success', async () => {

@@ -1,8 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 
+import { config } from '../../../config';
+
 export class JulesClient {
     private apiKey: string;
-    private baseUrl: string = "https://jules.googleapis.com/v1alpha";
+    private baseUrl: string;
     private client: AxiosInstance;
 
     constructor(apiKey: string) {
@@ -10,6 +12,7 @@ export class JulesClient {
             throw new Error("Jules API Key is required.");
         }
         this.apiKey = apiKey;
+        this.baseUrl = config.julesApiUrl;
         this.client = axios.create({
             baseURL: this.baseUrl,
             headers: {

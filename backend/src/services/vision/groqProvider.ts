@@ -36,11 +36,16 @@ export class GroqVisionProvider extends VisionProvider {
         temperature: number = 0.1
     ): Promise<VisionAnalysisResult> {
         const apiKey = config.groqApiKey;
+        const baseURL = config.groqBaseUrl;
+
         if (!apiKey) {
             throw new Error("GROQ_API_KEY environment variable is required.");
         }
 
-        const client = new Groq({ apiKey });
+        const client = new Groq({
+            apiKey,
+            baseURL: baseURL === 'https://api.groq.com/openai/v1' ? undefined : baseURL
+        });
 
         const messages: any[] = [
             { role: "system", content: SYSTEM_PROMPT },
