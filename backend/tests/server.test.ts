@@ -1,5 +1,7 @@
 import request from 'supertest';
 import app from '../src/server';
+import path from 'path';
+import { config } from '../src/config';
 import { visionService } from '../src/services/vision';
 
 jest.mock('../src/controllers/authController', () => ({
@@ -84,9 +86,9 @@ describe('Feedback Tool API', () => {
 
     it('POST /api/vision/analyze should return AI analysis result', async () => {
         const payload = {
-            mdFilePath: '/tmp/test/feedback.md',
-            imagePaths: ['/tmp/test/screenshot.png'],
-            outputPath: '/tmp/test/agent_prompt.json'
+            mdFilePath: path.join(config.feedbackDir, 'feedback.md'),
+            imagePaths: [path.join(config.feedbackDir, 'screenshot.png')],
+            outputPath: path.join(config.feedbackDir, 'agent_prompt.json')
         };
 
         const response = await request(app).post('/api/vision/analyze').send(payload);
