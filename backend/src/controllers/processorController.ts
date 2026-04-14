@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { config } from '../config';
 import { FeedbackService } from '../services/feedbackService';
 import { FeedbackProcessorFactory } from '../services/feedback_processors/processorFactory';
@@ -62,7 +63,18 @@ export class ProcessorController {
         const provider = (req.params.processor || 'jules') as string;
         try {
             const { feedbackDir, ...options } = req.body;
-            const result = await feedbackService.triggerProcessor(provider, feedbackDir, options);
+
+            if (!feedbackDir) {
+                return res.status(400).json({ error: 'feedbackDir is required.' });
+            }
+            const absolutePath = path.resolve(feedbackDir);
+            const feedbackRoot = path.resolve(config.feedbackDir);
+            const relativePath = path.relative(feedbackRoot, absolutePath);
+            if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
+                return res.status(403).json({ error: 'Unauthorized path.' });
+            }
+
+            const result = await feedbackService.triggerProcessor(provider, absolutePath, options);
             res.status(200).json(result);
         } catch (error: any) {
             console.error(`Error triggering ${provider}:`, error);

@@ -101,8 +101,10 @@ describe('Feedback Tool API', () => {
     });
 
     it('POST /api/send-to/jules should return success', async () => {
+        const { config } = require('../src/config');
+        const path = require('path');
         const response = await request(app).post('/api/send-to/jules').send({
-            feedbackDir: '/tmp/test',
+            feedbackDir: path.join(config.feedbackDir, 'test'),
             sourceId: 'test',
             branch: 'dev'
         });
@@ -110,8 +112,10 @@ describe('Feedback Tool API', () => {
     });
 
     it('POST /api/send-to/linear should return success', async () => {
+        const { config } = require('../src/config');
+        const path = require('path');
         const response = await request(app).post('/api/send-to/linear').send({
-            feedbackDir: '/tmp/test',
+            feedbackDir: path.join(config.feedbackDir, 'test'),
             title: 'Test Linear Issue'
         });
         expect(response.status).toBe(200);
