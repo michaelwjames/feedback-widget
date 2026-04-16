@@ -1,0 +1,4 @@
+## 2024-06-03 - [Path Traversal bypass via startsWith]
+**Vulnerability:** The `downloadFeedback` endpoint used `absolutePath.startsWith(feedbackRoot)` to verify if the requested path was inside the feedback directory. This allows a path traversal bypass because `/app/backend/feedbacks-secret` starts with `/app/backend/feedbacks`, even though it's a completely different directory.
+**Learning:** Using string matching like `startsWith` for path boundary validation is fundamentally insecure because it does not respect directory separators or handle relative path resolutions correctly.
+**Prevention:** Always use `path.relative(root, target)` and verify the resulting path does not start with `..` and is not absolute: `!(relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath))`.
