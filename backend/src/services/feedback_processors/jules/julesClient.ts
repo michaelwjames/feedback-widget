@@ -21,7 +21,8 @@ export class JulesClient {
 
     private buildPath(collection: string, nameOrId: string, action?: string): string {
         const prefix = `${collection}/`;
-        let path = nameOrId.startsWith(prefix) ? `/${nameOrId}` : `/${prefix}${nameOrId}`;
+        const cleanId = nameOrId.replace(/^\/+/, '');
+        let path = cleanId.startsWith(prefix) ? `/${cleanId}` : `/${prefix}${cleanId}`;
         if (action) {
             path += `:${action}`;
         }
@@ -90,7 +91,8 @@ export class JulesClient {
 
         if (sourceId) {
             // FIX: Ensure sourceId has 'sources/' prefix as required by the API
-            const fullSourceId = sourceId.startsWith('sources/') ? sourceId : `sources/${sourceId}`;
+            const cleanSourceId = sourceId.replace(/^\/+/, '');
+            const fullSourceId = cleanSourceId.startsWith('sources/') ? cleanSourceId : `sources/${cleanSourceId}`;
             
             payload.sourceContext = {
                 source: fullSourceId,
