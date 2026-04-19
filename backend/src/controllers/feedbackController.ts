@@ -40,7 +40,9 @@ export class FeedbackController {
         const absolutePath = path.resolve(feedbackPath);
         const feedbackRoot = path.resolve(config.feedbackDir);
 
-        if (!absolutePath.startsWith(feedbackRoot)) {
+        const relativePath = path.relative(feedbackRoot, absolutePath);
+
+        if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
             return res.status(403).json({ error: 'Unauthorized path.' });
         }
 
