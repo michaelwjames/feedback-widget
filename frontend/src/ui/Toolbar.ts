@@ -23,6 +23,9 @@ export class Toolbar {
   private xOffset = 0;
   private yOffset = 0;
 
+  private targetClientX = 0;
+  private targetClientY = 0;
+
   constructor(private callbacks: ToolbarCallbacks) {
     this.container = document.createElement('div');
     this.container.id = 'fw-toolbar';
@@ -208,14 +211,15 @@ export class Toolbar {
 
     e.preventDefault();
 
-    // Capture latest coordinates outside rAF to prevent stuttering
-    const clientX = e.clientX;
-    const clientY = e.clientY;
+    // Store latest coordinates as instance properties outside rAF
+    this.targetClientX = e.clientX;
+    this.targetClientY = e.clientY;
 
     if (this.dragAnimationFrame === null) {
       this.dragAnimationFrame = window.requestAnimationFrame(() => {
-        this.currentX = clientX - this.initialX;
-        this.currentY = clientY - this.initialY;
+        // Read from instance properties to get the absolutely latest coordinates
+        this.currentX = this.targetClientX - this.initialX;
+        this.currentY = this.targetClientY - this.initialY;
 
         this.xOffset = this.currentX;
         this.yOffset = this.currentY;
