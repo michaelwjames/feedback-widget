@@ -45,7 +45,7 @@ describe('JulesService', () => {
         expect(result).toEqual({ id: 'session-123' });
         expect(mockCreateSession).toHaveBeenCalledWith(
             'You are the auditor. Read AGENTS.md first. test feedback base',
-            undefined, undefined, undefined, undefined, "AUTO_CREATE_PR"
+            undefined, undefined, undefined, undefined, "AUTOMATION_MODE_AUTO_CREATE_PR"
         );
     });
 
