@@ -116,4 +116,10 @@ describe('Feedback Tool API', () => {
         });
         expect(response.status).toBe(200);
     });
+
+    it('GET /api/feedback/download should prevent directory traversal', async () => {
+        const response = await request(app).get('/api/feedback/download?path=../outside.txt');
+        expect(response.status).toBe(403);
+        expect(response.body.error).toEqual('Unauthorized path.');
+    });
 });
