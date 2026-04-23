@@ -116,4 +116,12 @@ describe('Feedback Tool API', () => {
         });
         expect(response.status).toBe(200);
     });
+
+    it('GET /api/feedback/download should prevent path traversal', async () => {
+        // config.feedbackDir is likely mocked or resolved to something.
+        // We test an out-of-bounds path that might bypass `startsWith` but should be caught by `path.relative`.
+        const response = await request(app).get('/api/feedback/download?path=../test_secrets/file.zip');
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Unauthorized path.');
+    });
 });
