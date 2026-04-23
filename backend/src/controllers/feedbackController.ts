@@ -39,8 +39,9 @@ export class FeedbackController {
         // Security check: ensure path is inside config.feedbackDir
         const absolutePath = path.resolve(feedbackPath);
         const feedbackRoot = path.resolve(config.feedbackDir);
+        const relativePath = path.relative(feedbackRoot, absolutePath);
 
-        if (!absolutePath.startsWith(feedbackRoot)) {
+        if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
             return res.status(403).json({ error: 'Unauthorized path.' });
         }
 
