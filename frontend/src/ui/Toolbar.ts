@@ -23,6 +23,10 @@ export class Toolbar {
   private xOffset = 0;
   private yOffset = 0;
 
+  // ⚡ Bolt: Store latest mouse coordinates to prevent stale closure values in rAF
+  private targetClientX = 0;
+  private targetClientY = 0;
+
   constructor(private callbacks: ToolbarCallbacks) {
     this.container = document.createElement('div');
     this.container.id = 'fw-toolbar';
@@ -208,14 +212,17 @@ export class Toolbar {
 
     e.preventDefault();
 
-    // Capture latest coordinates outside rAF to prevent stuttering
-    const clientX = e.clientX;
-    const clientY = e.clientY;
+    // ⚡ Bolt: Store latest coordinates on the instance outside rAF.
+    // This ensures that when the next frame renders, it uses the most up-to-date
+    // pointer position, eliminating stuttering and layout thrashing caused by
+    // stale variables trapped in the closure if multiple events fire before rendering.
+    this.targetClientX = e.clientX;
+    this.targetClientY = e.clientY;
 
     if (this.dragAnimationFrame === null) {
       this.dragAnimationFrame = window.requestAnimationFrame(() => {
-        this.currentX = clientX - this.initialX;
-        this.currentY = clientY - this.initialY;
+        this.currentX = this.targetClientX - this.initialX;
+        this.currentY = this.targetClientY - this.initialY;
 
         this.xOffset = this.currentX;
         this.yOffset = this.currentY;
