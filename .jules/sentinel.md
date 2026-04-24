@@ -1,0 +1,5 @@
+
+## 2024-05-24 - Path Traversal Vulnerability in Node.js backend using startsWith()
+**Vulnerability:** A path traversal vulnerability was present in `FeedbackController.downloadFeedback` because it used `.startsWith()` to check if an absolute path resided within an allowed directory (`feedbackDir`). An attacker could supply a path like `/tmp/feedback-fake/secret.txt` which starts with `/tmp/feedback`, thus bypassing the boundary check and accessing arbitrary files on the filesystem.
+**Learning:** Using `String.prototype.startsWith()` to validate directory boundaries is insecure because it doesn't respect directory separators (`/`). It only checks string prefixes, allowing malicious directories named similarly to the allowed directory to pass the check.
+**Prevention:** To safely prevent directory traversal in Node.js, always use `path.relative(root, target)` and verify the resulting relative path is not absolute and does not traverse up the directory tree (e.g., `relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)`).
