@@ -1,0 +1,4 @@
+## 2023-10-27 - Directory Traversal via Insecure Path Validation
+**Vulnerability:** A path traversal vulnerability existed in the feedback download endpoint because it used `absolutePath.startsWith(feedbackRoot)` to verify if the requested file was inside the target directory. This can be bypassed using paths that prefix the root directory string but represent different locations (e.g., `/app/feedback-fake` bypassing `/app/feedback` check).
+**Learning:** `startsWith()` only checks string prefixes and does not respect directory structure or boundaries in file paths.
+**Prevention:** To prevent directory traversal, always calculate the relative path using `path.relative(root, target)` and verify it does not contain relative upward traversals: `relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)` should return a 403 error.
